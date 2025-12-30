@@ -1,35 +1,34 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const search = searchParams.get('search') || '';
     const limit = 50;
-    const offset = (page - 1) * limit;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
 
     try {
-        let sql = "SELECT * FROM cola_mensajes";
-        const params: any[] = [];
+        let query = supabaseAdmin
+            .from('cola_mensajes')
+            .select('*', { count: 'exact' })
+            .order('fecha_creacion', { ascending: false })
+            .range(from, to);
 
         if (search) {
-            sql += " WHERE nombre ILIKE $1 OR telefono ILIKE $1 OR tipo ILIKE $1";
-            params.push(`%${search}%`);
+            query = query.or(`nombre.ilike.%${search}%,telefono.ilike.%${search}%,tipo.ilike.%${search}%`);
         }
 
-        const countQuery = await query(`SELECT COUNT(*) FROM (${sql}) AS sub`, params);
-        const totalItems = parseInt(countQuery.rows[0].count);
+        const { data, count, error } = await query;
 
-        sql += ` ORDER BY fecha_creacion DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-        params.push(limit, offset);
-
-        const result = await query(sql, params);
+        if (error) throw error;
 
         return NextResponse.json({
-            items: result.rows,
+            items: data,
             pagination: {
-                total: totalItems,
-                pages: Math.ceil(totalItems / limit),
+                total: count || 0,
+                pages: Math.ceil((count || 0) / limit),
                 currentPage: page
             }
         });

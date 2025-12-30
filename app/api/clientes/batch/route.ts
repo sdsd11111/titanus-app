@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 // Convert Excel serial number to date string (YYYY-MM-DD)
 function excelSerialToDate(serial: any): string | null {
@@ -30,55 +30,48 @@ function excelSerialToDate(serial: any): string | null {
 
 export async function POST(request: Request) {
     try {
-        const clients = await request.json();
+        const rawBody = await request.json();
 
-        if (!Array.isArray(clients)) {
-            return NextResponse.json({ error: "Invalid data format. Expected an array." }, { status: 400 });
+        // 1. Validar input
+        if (!Array.isArray(rawBody)) {
+            return NextResponse.json({ error: "Formato inválido. Se espera un array de clientes." }, { status: 400 });
         }
 
-        const stats = {
-            inserted: 0,
-            updated: 0,
-            errors: 0
-        };
+        // 2. Preprocesar datos (convertir fechas, normalizar campos)
+        const clientsToUpsert = rawBody.map(client => ({
+            telefono: client.telefono, // Clave única para Upsert
+            nombre: client.nombre,
+            fecha_vencimiento: excelSerialToDate(client.fecha_vencimiento),
+            fecha_nacimiento: excelSerialToDate(client.fecha_nacimiento),
+            estado: 'activo', // Default al importar
+            deuda: client.deuda || 0,
+            inasistencias: client.inasistencias || 0
+        }));
 
-        for (const client of clients) {
-            try {
-                // Convert dates if they are Excel serial numbers
-                const fecha_vencimiento = excelSerialToDate(client.fecha_vencimiento);
-                const fecha_nacimiento = excelSerialToDate(client.fecha_nacimiento);
+        // 3. Realizar UPSERT masivo con Supabase (Mucho más eficiente que loop 1 a 1)
+        // onConflict: 'telefono' usará la constraint UNIQUE de telefono para actualizar si existe o insertar si no.
+        const { data, error } = await supabaseAdmin
+            .from('clientes')
+            .upsert(clientsToUpsert, { onConflict: 'telefono', ignoreDuplicates: false })
+            .select();
 
-                // Check if client exists
-                const checkResult = await query(
-                    'SELECT id FROM clientes WHERE telefono = $1',
-                    [client.telefono]
-                );
-
-                if (checkResult.rows.length > 0) {
-                    // UPDATE existing client
-                    await query(
-                        'UPDATE clientes SET nombre = $1, fecha_vencimiento = $2, fecha_nacimiento = $3, estado = $4 WHERE telefono = $5',
-                        [client.nombre, fecha_vencimiento, fecha_nacimiento, 'activo', client.telefono]
-                    );
-                    stats.updated++;
-                } else {
-                    // INSERT new client
-                    await query(
-                        'INSERT INTO clientes (nombre, telefono, fecha_vencimiento, fecha_nacimiento, estado) VALUES ($1, $2, $3, $4, $5)',
-                        [client.nombre, client.telefono, fecha_vencimiento, fecha_nacimiento, 'activo']
-                    );
-                    stats.inserted++;
-                }
-            } catch (e: any) {
-                console.error(`Error processing client ${client.telefono}:`, e.message);
-                stats.errors++;
-            }
+        if (error) {
+            console.error("Supabase Batch Upsert Error:", error);
+            throw new Error(error.message);
         }
+
+        // Calcular estadísticas aproximadas (Upsert no diferencia insert/update fácilmente en retorno masivo)
+        const totalProcessed = data?.length || 0;
 
         return NextResponse.json({
-            message: "Batch processing completed",
-            stats
+            message: "Carga masiva completada exitosamente",
+            stats: {
+                total: totalProcessed,
+                inserted_or_updated: totalProcessed,
+                errors: 0
+            }
         });
+
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

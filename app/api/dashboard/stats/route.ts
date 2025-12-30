@@ -1,32 +1,67 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export async function GET() {
     try {
         const today = new Date().toISOString().split('T')[0];
+        const [year, month, day] = today.split('-');
 
         // 1. Clientes Activos
-        const clientesCount = await query("SELECT COUNT(*) FROM clientes WHERE estado = 'activo'");
+        const { count: clientesCount, error: errorClientes } = await supabaseAdmin
+            .from('clientes')
+            .select('*', { count: 'exact', head: true })
+            .eq('estado', 'activo');
 
-        // 2. Vencimientos Hoy (Cambiado a 'vencimiento = hoy + 1' según nueva lógica de bot, o mantenemos real)
-        // El usuario pidió "Vencimientos Hoy" en el dashboard para información
-        const vencimientosHoy = await query("SELECT COUNT(*) FROM clientes WHERE fecha_vencimiento = $1 AND estado = 'activo'", [today]);
+        if (errorClientes) throw errorClientes;
 
-        // 3. Cumpleaños Hoy
-        const dateParts = today.split('-');
-        const cumpleañosHoy = await query(
-            "SELECT COUNT(*) FROM clientes WHERE EXTRACT(MONTH FROM fecha_nacimiento) = $1 AND EXTRACT(DAY FROM fecha_nacimiento) = $2 AND estado = 'activo'",
-            [parseInt(dateParts[1]), parseInt(dateParts[2])]
-        );
+        // 2. Vencimientos Hoy
+        const { count: vencimientosHoy, error: errorVencimientos } = await supabaseAdmin
+            .from('clientes')
+            .select('*', { count: 'exact', head: true })
+            .eq('fecha_vencimiento', today)
+            .eq('estado', 'activo');
+
+        if (errorVencimientos) throw errorVencimientos;
+
+        // 3. Cumpleaños Hoy (Supabase no tiene EXTRACT directo fácil en JS, usamos filtro de rango o RPC si fuera complejo, pero aquí podemos traer los de hoy si la fecha coincide en dia/mes)
+        // Nota: Filtrar por día/mes exacto en Supabase JS client es complejo sin RPC.
+        // Solución alternativa eficiente: Traer todos los activos y filtrar en memoria (si son pocos) O usar una función de base de datos.
+        // Para mantener JS puro: Usaremos una query simple o RPC si existe.
+        // Dado que migramos de SQL puro, lo mejor es crear un RPC 'get_birthdays' o filtrar en cliente si son < 1000.
+        // Vamos a asumir volumen bajo por ahora y traer campos necesarios.
+
+        // OPCIÓN MEJORADA: RPC call (pero requiere crear función).
+        // OPCIÓN RÁPIDA (JS Filter):
+        const { data: allClients, error: errorCumple } = await supabaseAdmin
+            .from('clientes')
+            .select('fecha_nacimiento')
+            .eq('estado', 'activo');
+
+        if (errorCumple) throw errorCumple;
+
+        const cumpleañosHoyCount = allClients?.filter(c => {
+            if (!c.fecha_nacimiento) return false;
+            const d = new Date(c.fecha_nacimiento);
+            // Ajustar zona horaria si es necesario, pero asumiendo string YYYY-MM-DD directo
+            const nacMonth = parseInt(c.fecha_nacimiento.split('-')[1]);
+            const nacDay = parseInt(c.fecha_nacimiento.split('-')[2]);
+            return nacMonth === parseInt(month) && nacDay === parseInt(day);
+        }).length || 0;
+
 
         // 4. Mensajes Enviados Total
-        const mensajesEnviados = await query("SELECT COUNT(*) FROM cola_mensajes WHERE estado = 'enviado'");
+        const { count: mensajesEnviados, error: errorMensajes } = await supabaseAdmin
+            .from('cola_mensajes')
+            .select('*', { count: 'exact', head: true })
+            .eq('estado', 'enviado');
+
+        if (errorMensajes) throw errorMensajes;
 
         return NextResponse.json({
-            total_clientes: Number(clientesCount.rows[0].count) || 0,
-            vencimientos_hoy: Number(vencimientosHoy.rows[0].count) || 0,
-            cumpleaños_hoy: Number(cumpleañosHoy.rows[0].count) || 0,
-            mensajes_enviados: Number(mensajesEnviados.rows[0].count) || 0
+            total_clientes: clientesCount || 0,
+            vencimientos_hoy: vencimientosHoy || 0,
+            cumpleaños_hoy: cumpleañosHoyCount,
+            mensajes_enviados: mensajesEnviados || 0
         });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
