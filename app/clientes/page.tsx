@@ -10,30 +10,46 @@ import {
     Calendar,
     ChevronLeft,
     ChevronRight,
-    Hash
+    Hash,
+    Trash2
 } from "lucide-react";
 import axios from "axios";
 
 export default function ClientesPage() {
-    const [clientes, setClientes] = useState([]);
+    const [clientes, setClientes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 50;
 
+    const fetchClientes = async () => {
+        try {
+            const response = await axios.get("/api/clientes");
+            setClientes(response.data);
+        } catch (error) {
+            console.error("Error fetching clientes:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchClientes = async () => {
-            try {
-                const response = await axios.get("/api/clientes");
-                setClientes(response.data);
-            } catch (error) {
-                console.error("Error fetching clientes:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchClientes();
     }, []);
+
+    const handleDelete = async (id: number) => {
+        if (!confirm("¿Estás seguro de que quieres eliminar este guerrero? Esta acción no se puede deshacer.")) return;
+
+        try {
+            await axios.delete(`/api/clientes/${id}`);
+            // Actualizar estado local
+            setClientes(prev => prev.filter(c => c.id !== id));
+        } catch (error) {
+            console.error("Error al eliminar:", error);
+            alert("Error al eliminar el cliente");
+        }
+    };
+
 
     // Filtro de búsqueda (Autocomplete simulado)
     const filteredClientes = useMemo(() => {
@@ -191,9 +207,18 @@ export default function ClientesPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-5 text-right">
-                                                    <button className="text-gray-500 hover:text-white p-2 transition-colors">
-                                                        <MoreHorizontal size={20} />
-                                                    </button>
+                                                    <div className="flex justify-end gap-2">
+                                                        <button
+                                                            onClick={() => handleDelete(cliente.id)}
+                                                            className="text-gray-500 hover:text-red-500 p-2 transition-colors hover:bg-red-500/10 rounded-lg group-hover/btn:opacity-100"
+                                                            title="Eliminar Guerrero"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                        <button className="text-gray-500 hover:text-white p-2 transition-colors rounded-lg hover:bg-white/5">
+                                                            <MoreHorizontal size={18} />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
