@@ -11,21 +11,19 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+        setLoading(true);
 
-        if (username === "Titanus Gym" && password === "Contraseña123.") {
-            // Generar un token "firmado" (Simulación de HMAC para seguridad sin backend pesado)
-            // En producción real, esto vendría de un API route con una clave secreta del servidor.
-            const secret = "spartan_fortress_2025_titanus_gym";
-            const salt = Math.random().toString(36).substring(7);
-            const token = btoa(`${username}:${salt}:${secret}`);
+        try {
+            const response = await axios.post('/api/auth/login', { username, password });
+            const { token } = response.data;
 
             document.cookie = `titanus_session=${token}; path=/; max-age=86400; SameSite=Strict`;
             router.push("/");
-        } else {
-            setError("CREDENCIALES INVÁLIDAS. SIGUE ENTRENANDO.");
+        } catch (err: any) {
+            setError(err.response?.data?.error || "ERROR EN LA ARENA. REINTENTA.");
             setLoading(false);
         }
     };

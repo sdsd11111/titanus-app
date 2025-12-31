@@ -9,7 +9,9 @@ export function middleware(request: NextRequest) {
         try {
             const decoded = Buffer.from(session, 'base64').toString();
             const [user, salt, secret] = decoded.split(':');
-            if (user === 'Titanus Gym' && secret === 'spartan_fortress_2025_titanus_gym') {
+            const serverSecret = process.env.DASHBOARD_SECRET || "spartan_fortress_2025_titanus_gym";
+
+            if (user === 'Titanus Gym' && secret === serverSecret) {
                 isAuthenticated = true;
             }
         } catch (e) {
