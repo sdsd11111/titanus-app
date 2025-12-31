@@ -11,7 +11,9 @@ import {
     RefreshCw,
     Zap,
     Eye,
-    ChevronDown
+    ChevronDown,
+    Send,
+    LogOut
 } from "lucide-react";
 import axios from "axios";
 
@@ -20,10 +22,24 @@ export default function ConfigPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [wsStatus, setWsStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading');
+    const [testPhone, setTestPhone] = useState('');
+    const [testMessage, setTestMessage] = useState('');
+    const [sendingTest, setSendingTest] = useState(false);
+    const [testResult, setTestResult] = useState<{ success?: boolean; message?: string } | null>(null);
+    const [qrCode, setQrCode] = useState<string | null>(null);
+    const [loadingQr, setLoadingQr] = useState(false);
+    const [disconnecting, setDisconnecting] = useState(false);
 
     useEffect(() => {
         fetchConfigs();
         checkWhatsAppStatus();
+
+        // Poll status every 5 seconds for real-time updates
+        const interval = setInterval(() => {
+            checkWhatsAppStatus();
+        }, 5000);
+
+        return () => clearInterval(interval);
     }, []);
 
     const fetchConfigs = async () => {
@@ -39,8 +55,8 @@ export default function ConfigPage() {
 
     const checkWhatsAppStatus = async () => {
         try {
-            // Mock status for now
-            setWsStatus('connected');
+            const response = await axios.get("/api/whatsapp/status");
+            setWsStatus(response.data.connected ? 'connected' : 'disconnected');
         } catch (error) {
             setWsStatus('disconnected');
         }
@@ -53,6 +69,76 @@ export default function ConfigPage() {
             await fetchConfigs();
         } finally {
             setSaving(false);
+        }
+    };
+
+    const sendTestMessage = async () => {
+        if (!testPhone || !testMessage) {
+            setTestResult({ success: false, message: 'Por favor completa todos los campos' });
+            return;
+        }
+
+        setSendingTest(true);
+        setTestResult(null);
+
+        try {
+            const response = await axios.post("/api/whatsapp/test", {
+                phoneNumber: testPhone,
+                message: testMessage
+            });
+
+            setTestResult({
+                success: true,
+                message: '✅ Mensaje enviado correctamente!'
+            });
+
+            // Clear form after successful send
+            setTimeout(() => {
+                setTestPhone('');
+                setTestMessage('');
+                setTestResult(null);
+            }, 3000);
+        } catch (error: any) {
+            setTestResult({
+                success: false,
+                message: `❌ Error: ${error.response?.data?.error || 'No se pudo enviar el mensaje'}`
+            });
+        } finally {
+            setSendingTest(false);
+        }
+    };
+
+    const getQrCode = async () => {
+        setLoadingQr(true);
+        setQrCode(null);
+
+        try {
+            await axios.post("/api/whatsapp/qr");
+            // Set the QR image URL with timestamp to avoid caching
+            setQrCode(`/api/whatsapp/qr?t=${Date.now()}`);
+        } catch (error) {
+            console.error('Error fetching QR:', error);
+            alert('Error al obtener el código QR');
+        } finally {
+            setLoadingQr(false);
+        }
+    };
+
+    const disconnectWhatsApp = async () => {
+        if (!confirm('¿Estás seguro de que quieres desconectar el WhatsApp? El bot dejará de funcionar.')) return;
+
+        setDisconnecting(true);
+        try {
+            await axios.post("/api/whatsapp/logout");
+            alert('Desconectado correctamente');
+            // Force status refresh
+            checkWhatsAppStatus();
+            setQrCode(null);
+        } catch (error) {
+            console.error('Error disconnecting:', error);
+            alert('Error al desconectar. Intenta de nuevo.');
+        } finally {
+            setDisconnecting(false);
         }
     };
 
@@ -89,8 +175,8 @@ export default function ConfigPage() {
                                     key={p.id}
                                     onClick={() => saveConfig('ai_provider', p.id)}
                                     className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${configs.ai_provider === p.id
-                                            ? 'border-spartan-yellow bg-spartan-yellow/10 text-white'
-                                            : 'border-white/5 bg-white/5 text-gray-500 hover:border-white/10'
+                                        ? 'border-spartan-yellow bg-spartan-yellow/10 text-white'
+                                        : 'border-white/5 bg-white/5 text-gray-500 hover:border-white/10'
                                         }`}
                                 >
                                     <div className="flex items-center gap-3">
@@ -182,13 +268,142 @@ export default function ConfigPage() {
                             </div>
                         </div>
 
-                        <button className="w-full bg-white/5 p-4 rounded-2xl flex items-center justify-between border border-white/5 hover:bg-white/10 transition-all group">
-                            <div className="flex items-center gap-3">
-                                <RefreshCw className="h-5 w-5 text-gray-500 group-hover:rotate-180 transition-all duration-500" />
-                                <span className="text-gray-300 font-medium">Reconectar Instancia</span>
+                        {wsStatus === 'disconnected' && (
+                            <div className="space-y-4">
+                                {!qrCode ? (
+                                    <button
+                                        onClick={getQrCode}
+                                        disabled={loadingQr}
+                                        className="w-full spartan-gradient text-black p-4 rounded-2xl flex items-center justify-center gap-3 font-bold uppercase tracking-widest transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <Smartphone size={20} />
+                                        {loadingQr ? 'Generando QR...' : 'Conectar WhatsApp'}
+                                    </button>
+                                ) : (
+                                    <div className="bg-white p-6 rounded-3xl space-y-4 animate-in zoom-in-95 duration-300">
+                                        <div className="text-center space-y-2">
+                                            <h4 className="font-bold text-black text-lg">Escanea este código QR</h4>
+                                            <p className="text-sm text-gray-600">Abre WhatsApp en tu teléfono y escanea este código</p>
+                                        </div>
+                                        <div className="flex justify-center">
+                                            <img
+                                                src={qrCode}
+                                                alt="WhatsApp QR Code"
+                                                className="w-64 h-64 border-4 border-spartan-yellow rounded-2xl"
+                                            />
+                                        </div>
+                                        <div className="text-center space-y-2">
+                                            <p className="text-xs text-gray-500">
+                                                1. Abre WhatsApp en tu teléfono<br />
+                                                2. Toca Menú o Configuración<br />
+                                                3. Toca Dispositivos vinculados<br />
+                                                4. Escanea este código QR
+                                            </p>
+                                            <button
+                                                onClick={() => setQrCode(null)}
+                                                className="text-xs text-gray-500 hover:text-black underline"
+                                            >
+                                                Cancelar
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            <Zap className="h-4 w-4 text-spartan-yellow" />
-                        </button>
+                        )}
+
+                        {wsStatus === 'connected' && (
+                            <div className="space-y-3">
+                                <button
+                                    onClick={checkWhatsAppStatus}
+                                    className="w-full bg-white/5 p-4 rounded-2xl flex items-center justify-between border border-white/5 hover:bg-white/10 transition-all group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <RefreshCw className="h-5 w-5 text-gray-500 group-hover:rotate-180 transition-all duration-500" />
+                                        <span className="text-gray-300 font-medium">Actualizar Estado</span>
+                                    </div>
+                                    <Zap className="h-4 w-4 text-spartan-yellow" />
+                                </button>
+
+                                <button
+                                    onClick={disconnectWhatsApp}
+                                    disabled={disconnecting}
+                                    className="w-full bg-red-500/10 p-4 rounded-2xl flex items-center justify-between border border-red-500/20 hover:bg-red-500/20 transition-all group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <LogOut className="h-5 w-5 text-red-500" />
+                                        <span className="text-red-400 font-medium">Desconectar</span>
+                                    </div>
+                                    {disconnecting && <span className="text-xs text-red-400">Procesando...</span>}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Test Message Card */}
+                    <div className="bg-spartan-charcoal/30 rounded-3xl border border-white/10 p-8 space-y-6">
+                        <h3 className="font-bold text-lg flex items-center gap-2">
+                            <Send size={20} className="text-spartan-yellow" />
+                            Prueba de Mensaje
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                            Envía un mensaje de prueba para verificar que la conexión funciona correctamente.
+                        </p>
+
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-xs text-gray-500 font-bold uppercase tracking-wider">
+                                    Número de WhatsApp
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="593963410409"
+                                    value={testPhone}
+                                    onChange={(e) => setTestPhone(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-spartan-yellow/50 transition-all"
+                                    disabled={sendingTest}
+                                />
+                                <p className="text-[10px] text-gray-600">
+                                    Incluye código de país sin el signo +
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-xs text-gray-500 font-bold uppercase tracking-wider">
+                                    Mensaje
+                                </label>
+                                <textarea
+                                    placeholder="Escribe tu mensaje de prueba aquí..."
+                                    value={testMessage}
+                                    onChange={(e) => setTestMessage(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-spartan-yellow/50 transition-all min-h-[100px]"
+                                    disabled={sendingTest}
+                                />
+                            </div>
+
+                            {testResult && (
+                                <div className={`p-4 rounded-2xl border ${testResult.success
+                                    ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                                    : 'bg-red-500/10 border-red-500/30 text-red-400'
+                                    } animate-in slide-in-from-top-2 duration-300`}>
+                                    {testResult.message}
+                                </div>
+                            )}
+
+                            <button
+                                onClick={sendTestMessage}
+                                disabled={sendingTest || wsStatus !== 'connected'}
+                                className="w-full spartan-gradient text-black py-3 px-6 rounded-xl text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            >
+                                <Send size={16} />
+                                {sendingTest ? 'Enviando...' : 'Enviar Prueba'}
+                            </button>
+
+                            {wsStatus !== 'connected' && (
+                                <p className="text-xs text-red-400 text-center">
+                                    ⚠️ El WhatsApp debe estar conectado para enviar mensajes
+                                </p>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

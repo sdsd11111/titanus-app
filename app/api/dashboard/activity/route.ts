@@ -20,6 +20,9 @@ export async function GET(request: Request) {
             query = query.or(`nombre.ilike.%${search}%,telefono.ilike.%${search}%,tipo.ilike.%${search}%`);
         }
 
+        // Exclude system logs
+        query = query.not('tipo', 'eq', 'log').neq('nombre', 'System Bot');
+
         const { data, count, error } = await query;
 
         if (error) throw error;

@@ -132,8 +132,10 @@ export default function ClientesPage() {
                                     paginatedClientes.map((cliente: any) => {
                                         const hoy = new Date();
                                         hoy.setHours(0, 0, 0, 0);
-                                        const vencimiento = new Date(cliente.fecha_vencimiento);
-                                        vencimiento.setHours(0, 0, 0, 0);
+
+                                        // Manually parse YYYY-MM-DD to get local midnight date
+                                        const [vYear, vMonth, vDay] = (cliente.fecha_vencimiento || "2000-01-01").split('-');
+                                        const vencimiento = new Date(Number(vYear), Number(vMonth) - 1, Number(vDay));
 
                                         const diffTime = vencimiento.getTime() - hoy.getTime();
                                         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -176,9 +178,12 @@ export default function ClientesPage() {
                                                 <td className="px-6 py-5">
                                                     <div className="flex items-center gap-2 text-gray-400 text-sm">
                                                         <Calendar className="h-4 w-4 opacity-50" />
-                                                        {cliente.fecha_nacimiento
-                                                            ? new Date(cliente.fecha_nacimiento).toLocaleDateString()
-                                                            : 'N/A'}
+                                                        {(() => {
+                                                            if (!cliente.fecha_nacimiento) return 'N/A';
+                                                            // Split YYYY-MM-DD to avoid timezone issues
+                                                            const [year, month, day] = cliente.fecha_nacimiento.split('-');
+                                                            return `${day}/${month}/${year}`;
+                                                        })()}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-5 text-center">
@@ -193,7 +198,7 @@ export default function ClientesPage() {
                                                     <div className="space-y-1">
                                                         <div className="flex items-center gap-2 text-gray-300 font-medium">
                                                             <Calendar className="h-4 w-4 text-gray-500" />
-                                                            {vencimiento.toLocaleDateString()}
+                                                            {`${vDay}/${vMonth}/${vYear}`}
                                                         </div>
                                                         <div className={`text-xs uppercase tracking-tighter ${statusClass}`}>
                                                             {statusMsg}
