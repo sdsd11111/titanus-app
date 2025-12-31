@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldAlert, Lock, User, Brain } from "lucide-react";
+import axios from "axios";
 
 export default function LoginPage() {
     const [username, setUsername] = useState("");
