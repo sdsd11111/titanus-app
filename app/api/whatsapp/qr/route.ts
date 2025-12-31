@@ -27,7 +27,7 @@ async function fetchQrCode() {
                 margin: 2
             });
 
-            return new Response(qrImageBuffer, {
+            return new Response(qrImageBuffer as any, {
                 status: 200,
                 headers: {
                     'Content-Type': 'image/png',
