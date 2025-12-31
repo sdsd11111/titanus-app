@@ -19,19 +19,27 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { nombre, telefono, fecha_vencimiento, fecha_nacimiento, deuda, inasistencias, estado } = body;
+        let { nombre, telefono, fecha_nacimiento, fecha_vencimiento, deuda, estado } = body;
 
-        const { data, error } = await supabaseAdmin
+        // Validation & Sanitization
+        if (!nombre || !telefono) throw new Error("Nombre y teléfono son obligatorios");
+
+        nombre = nombre.substring(0, 100).replace(/[<>]/g, ''); // Basic XSS prev
+        telefono = telefono.replace(/[^0-9+]/g, '').substring(0, 20);
+
+        const { error } = await supabaseAdmin
             .from('clientes')
-            .insert([
-                { nombre, telefono, fecha_vencimiento, fecha_nacimiento, deuda, inasistencias, estado }
-            ])
-            .select()
-            .single();
+            .insert({
+                nombre,
+                telefono,
+                fecha_nacimiento: fecha_nacimiento || null,
+                fecha_vencimiento: fecha_vencimiento || null,
+                deuda: deuda || 0,
+                estado: estado || 'activo'
+            });
 
         if (error) throw error;
-
-        return NextResponse.json(data);
+        return NextResponse.json({ success: true });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

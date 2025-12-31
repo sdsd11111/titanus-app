@@ -10,7 +10,12 @@ export async function GET() {
         if (error) throw error;
 
         const configMap = data.reduce((acc: any, row: any) => {
-            acc[row.clave] = row.valor;
+            let valor = row.valor;
+            // Full hardening: Don't even send masked keys to the frontend
+            if (row.clave.includes('_api_key') && valor && valor.length > 5) {
+                valor = "******** (Configurado)";
+            }
+            acc[row.clave] = valor;
             return acc;
         }, {});
 
@@ -23,7 +28,23 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { clave, valor } = body;
+        let { clave, valor } = body;
+
+        // Validation & Safety
+        if (!clave || typeof clave !== 'string') return NextResponse.json({ error: "Clave inválida" }, { status: 400 });
+
+        // Sanitize clave
+        clave = clave.replace(/[^a-zA-Z0-9_]/g, '');
+
+        // AI Safety: Limit prompt length to 2000 chars
+        if (clave.startsWith('prompt_') && valor && valor.length > 2000) {
+            valor = valor.substring(0, 2000);
+        }
+
+        // IMPORTANT FIX: Don't save if it's the privacy placeholder
+        if (valor === "******** (Configurado)") {
+            return NextResponse.json({ success: true });
+        }
 
         const { error } = await supabaseAdmin
             .from('configuracion')

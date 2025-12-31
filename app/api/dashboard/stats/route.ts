@@ -57,11 +57,19 @@ export async function GET() {
 
         if (errorMensajes) throw errorMensajes;
 
+        // 5. Bot Heartbeat
+        const { data: hbData } = await supabaseAdmin
+            .from('configuracion')
+            .select('valor')
+            .eq('clave', 'bot_heartbeat')
+            .single();
+
         return NextResponse.json({
             total_clientes: clientesCount || 0,
             vencimientos_hoy: vencimientosHoy || 0,
             cumpleaños_hoy: cumpleañosHoyCount,
-            mensajes_enviados: mensajesEnviados || 0
+            mensajes_enviados: mensajesEnviados || 0,
+            bot_heartbeat: hbData?.valor || null
         });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });

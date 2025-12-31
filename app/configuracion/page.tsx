@@ -145,7 +145,6 @@ export default function ConfigPage() {
     const providers = [
         { id: "openai", name: "OpenAI (GPT-4o/3.5)", icon: "✨" },
         { id: "gemini", name: "Google Gemini", icon: "💎" },
-        { id: "ollama", name: "Ollama (Local/Gratis)", icon: "🏠" },
     ];
 
     if (loading) return <div className="p-8 text-gray-500 animate-pulse">Cargando configuración...</div>;
@@ -167,87 +166,131 @@ export default function ConfigPage() {
                         <h2>Cerebro IA (Prompts)</h2>
                     </div>
 
-                    <div className="bg-spartan-charcoal/30 rounded-3xl border border-white/10 p-6 space-y-4">
-                        <label className="text-sm text-gray-400 font-bold uppercase tracking-wider">Proveedor de IA Activo</label>
-                        <div className="grid grid-cols-1 gap-3">
-                            {providers.map((p) => (
-                                <button
-                                    key={p.id}
-                                    onClick={() => saveConfig('ai_provider', p.id)}
-                                    className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${configs.ai_provider === p.id
-                                        ? 'border-spartan-yellow bg-spartan-yellow/10 text-white'
-                                        : 'border-white/5 bg-white/5 text-gray-500 hover:border-white/10'
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-xl">{p.icon}</span>
-                                        <span className="font-semibold">{p.name}</span>
+                    <div className="bg-spartan-charcoal/30 rounded-3xl border border-white/10 p-6 space-y-6">
+                        <div className="space-y-4">
+                            <label className="text-sm text-gray-400 font-bold uppercase tracking-wider block">Proveedor de IA Activo</label>
+                            <div className="grid grid-cols-1 gap-3">
+                                {providers.map((p) => (
+                                    <button
+                                        key={p.id}
+                                        onClick={() => saveConfig('ai_provider', p.id)}
+                                        className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${configs.ai_provider === p.id
+                                            ? 'border-spartan-yellow bg-spartan-yellow/10 text-white'
+                                            : 'border-white/5 bg-white/5 text-gray-500 hover:border-white/10'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xl">{p.icon}</span>
+                                            <div>
+                                                <div className="font-semibold">{p.name}</div>
+                                                {p.id === 'gemini' && (
+                                                    <div className="text-[10px] text-spartan-yellow font-bold uppercase tracking-wider">
+                                                        Universal Adapter Active
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {configs.ai_provider === p.id && <CheckCircle className="text-spartan-yellow h-5 w-5" />}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-white/5">
+                            <div className="space-y-4">
+                                <KeyInput
+                                    label={configs.ai_provider === 'openai' ? "OpenAI API Key" : "Gemini API Key"}
+                                    placeholder={configs.ai_provider === 'openai' ? "sk-..." : "AIza..."}
+                                    value={configs.ai_provider === 'openai' ? (configs.openai_api_key || "") : (configs.gemini_api_key || "")}
+                                    onSave={(val: string) => saveConfig(configs.ai_provider === 'openai' ? 'openai_api_key' : 'gemini_api_key', val)}
+                                />
+                                {configs.ai_provider === 'openai' && (
+                                    <div className="space-y-4 pt-4 border-t border-white/5">
+                                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider block">Modelo de Inteligencia</label>
+                                        <select
+                                            value={configs.openai_model || 'gpt-3.5-turbo'}
+                                            onChange={(e) => saveConfig('openai_model', e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-spartan-yellow/50 transition-all font-bold appearance-none cursor-pointer"
+                                        >
+                                            <option value="gpt-3.5-turbo" className="bg-spartan-charcoal">GPT-3.5 Turbo (Económico/Estándar)</option>
+                                            <option value="gpt-4o-mini" className="bg-spartan-charcoal">GPT-4o Mini (Rápido/Eficiente)</option>
+                                            <option value="gpt-4o" className="bg-spartan-charcoal">GPT-4o (Máxima Potencia)</option>
+                                            <option value="gpt-4-turbo" className="bg-spartan-charcoal">GPT-4 Turbo</option>
+                                        </select>
+                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest px-2">
+                                            Asegúrate de que tu cuenta de OpenAI tenga acceso al modelo seleccionado.
+                                        </p>
                                     </div>
-                                    {configs.ai_provider === p.id && <CheckCircle className="text-spartan-yellow h-5 w-5" />}
-                                </button>
-                            ))}
+                                )}
+                                {configs.ai_provider === 'gemini' && (
+                                    <div className="bg-blue-500/10 p-4 rounded-xl text-xs text-blue-300 border border-blue-500/20">
+                                        ℹ️ <b>Tip:</b> Activa tu llave en Google AI Studio. Es gratis y el bot se adaptará automáticamente a tu modelo.
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
                     <PromptCard
                         title="Mensaje de Cumpleaños"
                         description="Personaliza cómo la IA redactará las felicitaciones."
-                        value={configs.prompt_cumpleanios || ""}
+                        tipo="cumpleanios"
+                        promptValue={configs.prompt_cumpleanios || ""}
+                        staticValue={configs.prompt_cumpleanios_static || ""}
+                        mode={configs.prompt_cumpleanios_mode || 'ai'}
                         variables={["Nombre"]}
-                        onSave={(val: string) => saveConfig('prompt_cumpleanios', val)}
+                        onSave={saveConfig}
+                        onModeChange={(mode: string) => saveConfig('prompt_cumpleanios_mode', mode)}
                         saving={saving}
+                        provider={configs.ai_provider || 'openai'}
+                        apiKeys={{
+                            openai: configs.openai_api_key,
+                            gemini: configs.gemini_api_key
+                        }}
                     />
 
                     <PromptCard
                         title="Recordatorio de Vencimiento"
                         description="Prompt para avisar que la membresía está por terminar."
-                        value={configs.prompt_vencimiento || ""}
+                        tipo="vencimiento"
+                        promptValue={configs.prompt_vencimiento || ""}
+                        staticValue={configs.prompt_vencimiento_static || ""}
+                        mode={configs.prompt_vencimiento_mode || 'ai'}
                         variables={["Nombre", "FechaVencimiento"]}
-                        onSave={(val: string) => saveConfig('prompt_vencimiento', val)}
+                        onSave={saveConfig}
+                        onModeChange={(mode: string) => saveConfig('prompt_vencimiento_mode', mode)}
                         saving={saving}
+                        provider={configs.ai_provider || 'openai'}
+                        apiKeys={{
+                            openai: configs.openai_api_key,
+                            gemini: configs.gemini_api_key
+                        }}
                     />
 
                     <PromptCard
                         title="Seguimiento de Inasistencia"
                         description="Prompt para motivar al cliente a volver al gym."
-                        value={configs.prompt_seguimiento || ""}
+                        tipo="seguimiento"
+                        promptValue={configs.prompt_seguimiento || ""}
+                        staticValue={configs.prompt_seguimiento_static || ""}
+                        mode={configs.prompt_seguimiento_mode || 'ai'}
                         variables={["Nombre", "DíasInactividad"]}
-                        onSave={(val: string) => saveConfig('prompt_seguimiento', val)}
+                        onSave={saveConfig}
+                        onModeChange={(mode: string) => saveConfig('prompt_seguimiento_mode', mode)}
                         saving={saving}
+                        provider={configs.ai_provider || 'openai'}
+                        apiKeys={{
+                            openai: configs.openai_api_key,
+                            gemini: configs.gemini_api_key
+                        }}
                     />
                 </div>
 
-                {/* WhatsApp & Keys Section */}
+                {/* WhatsApp Section */}
                 <div className="space-y-6">
                     <div className="flex items-center gap-2 text-xl font-bold text-spartan-yellow">
                         <Smartphone size={24} />
-                        <h2>Conexión y Llaves</h2>
-                    </div>
-
-                    {/* API Keys Card */}
-                    <div className="bg-spartan-charcoal/30 rounded-3xl border border-white/10 p-8 space-y-6">
-                        <h3 className="font-bold text-lg">Configuración de API Keys</h3>
-
-                        <div className="space-y-4">
-                            <KeyInput
-                                label="OpenAI API Key"
-                                placeholder="sk-..."
-                                value={configs.openai_api_key || ""}
-                                onSave={(val: string) => saveConfig('openai_api_key', val)}
-                            />
-                            <KeyInput
-                                label="Gemini API Key"
-                                placeholder="AIza..."
-                                value={configs.gemini_api_key || ""}
-                                onSave={(val: string) => saveConfig('gemini_api_key', val)}
-                            />
-                            <KeyInput
-                                label="Ollama URL (Local)"
-                                placeholder="http://localhost:11434"
-                                value={configs.ollama_url || "http://localhost:11434"}
-                                onSave={(val: string) => saveConfig('ollama_url', val)}
-                            />
-                        </div>
+                        <h2>Conexión WhatsApp</h2>
                     </div>
 
                     {/* WhatsApp Status Card */}
@@ -412,58 +455,108 @@ export default function ConfigPage() {
 }
 
 function KeyInput({ label, placeholder, value, onSave }: any) {
+    const isConfigured = value === "******** (Configurado)";
     const [localVal, setLocalVal] = useState(value);
-    useEffect(() => setLocalVal(value), [value]);
+    const [isEditing, setIsEditing] = useState(false);
+
+    useEffect(() => {
+        setLocalVal(value);
+    }, [value]);
 
     return (
         <div className="space-y-2">
             <label className="text-xs text-gray-500 font-bold uppercase tracking-wider">{label}</label>
             <div className="relative">
                 <input
-                    type="password"
+                    type={isEditing || !isConfigured ? "text" : "password"}
                     placeholder={placeholder}
                     value={localVal}
+                    onFocus={() => {
+                        if (isConfigured) {
+                            setLocalVal("");
+                            setIsEditing(true);
+                        }
+                    }}
                     onChange={(e) => setLocalVal(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-spartan-yellow/50 transition-all font-mono text-sm"
                 />
                 <button
-                    onClick={() => onSave(localVal)}
+                    onClick={() => {
+                        onSave(localVal);
+                        setIsEditing(false);
+                    }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-spartan-yellow font-bold text-xs uppercase hover:bg-spartan-yellow/10 px-3 py-1.5 rounded-xl transition-all"
                 >
-                    Listo
+                    {isConfigured && !isEditing ? "Cambiar" : "Listo"}
                 </button>
             </div>
         </div>
     );
 }
 
-function PromptCard({ title, description, value, variables, onSave, saving }: any) {
-    const [localVal, setLocalVal] = useState(value);
+function PromptCard({ title, description, tipo, promptValue, staticValue, mode, variables, onSave, onModeChange, saving, provider, apiKeys }: any) {
+    const [localPrompt, setLocalPrompt] = useState(promptValue);
+    const [localStatic, setLocalStatic] = useState(staticValue);
     const [showPreview, setShowPreview] = useState(false);
+    const [previewText, setPreviewText] = useState("");
+    const [generating, setGenerating] = useState(false);
+    const [isManual, setIsManual] = useState(mode === 'static');
+    const [editMode, setEditMode] = useState<'prompt' | 'static'>(mode === 'static' ? 'static' : 'prompt');
+    const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
     useEffect(() => {
-        setLocalVal(value);
-    }, [value]);
+        setLocalPrompt(promptValue);
+        setLocalStatic(staticValue);
+    }, [promptValue, staticValue]);
 
-    const getPreviewText = () => {
-        let text = localVal || "Escribe un prompt para ver la preview...";
-        const demoVars: any = {
-            "Nombre": "Leonidas espartano",
-            "FechaVencimiento": "2025-01-15",
-            "DíasInactividad": "7"
-        };
+    useEffect(() => {
+        setIsManual(mode === 'static');
+        setEditMode(mode === 'static' ? 'static' : 'prompt');
+    }, [mode]);
 
-        return (
-            <div className="space-y-4">
-                <div className="text-xs text-spartan-yellow font-mono bg-black/40 p-3 rounded-xl border border-spartan-yellow/20">
-                    SISTEMA: Usando variables de prueba...
-                </div>
-                <div className="bg-spartan-black p-4 rounded-2xl border border-white/10 text-gray-300 text-sm italic leading-relaxed">
-                    "Hola {demoVars.Nombre}! {title.includes('Cumpleaños') ? 'Feliz cumple!' : title.includes('Vencimiento') ? `Tu membresía vence el ${demoVars.FechaVencimiento}.` : `Te extrañamos, llevas ${demoVars.DíasInactividad} días sin venir.`} No te rindas, ¡te esperamos en Titanus Fitness! 💪"
-                </div>
-                <p className="text-[10px] text-gray-600">Nota: La IA redactará el mensaje final basándose en tu prompt y la personalidad del gimnasio.</p>
-            </div>
-        );
+    const handlePreview = async () => {
+        if (!showPreview) {
+            setShowPreview(true);
+            if (!previewText) await generateText();
+        } else {
+            setShowPreview(false);
+        }
+    };
+
+    const generateText = async () => {
+        setGenerating(true);
+        setPreviewText("");
+
+        try {
+            const demoVars: any = {
+                "Nombre": "Leonidas",
+                "FechaVencimiento": "mañana",
+                "DíasInactividad": "7"
+            };
+
+            const response = await axios.post('/api/ai/preview', {
+                provider,
+                apiKey: provider === 'openai' ? apiKeys.openai : apiKeys.gemini,
+                prompt: localPrompt,
+                variables: demoVars
+            });
+
+            setPreviewText(response.data.result);
+        } catch (error: any) {
+            setPreviewText(`Error al generar preview: ${error.message || 'Error desconocido'}`);
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    const handleSave = async (forceStatic?: string) => {
+        const key = forceStatic ? `prompt_${tipo}_static` : (editMode === 'prompt' ? `prompt_${tipo}` : `prompt_${tipo}_static`);
+        const val = forceStatic || (editMode === 'prompt' ? localPrompt : localStatic);
+
+        setSaveStatus("Guardando...");
+        await onSave(key, val);
+        setSaveStatus("¡Guardado!");
+        setTimeout(() => setSaveStatus(null), 2000);
     };
 
     return (
@@ -482,35 +575,123 @@ function PromptCard({ title, description, value, variables, onSave, saving }: an
                 </div>
             </div>
 
-            <textarea
-                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-spartan-yellow/50 transition-all min-h-[120px]"
-                value={localVal}
-                onChange={(e) => setLocalVal(e.target.value)}
-                placeholder="Ej: Redacta un mensaje motivador de cumpleaños estilo espartano..."
-            />
+            {/* Mode Switcher */}
+            <div className="flex items-center justify-between p-1 bg-black/40 rounded-2xl border border-white/5">
+                <button
+                    onClick={() => onModeChange('ai')}
+                    className={`flex-1 py-2 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${!isManual ? 'bg-spartan-yellow text-black' : 'text-gray-500 hover:text-white'}`}
+                >
+                    Modo IA (Dinámico)
+                </button>
+                <button
+                    onClick={() => onModeChange('static')}
+                    className={`flex-1 py-2 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${isManual ? 'bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.3)]' : 'text-gray-500 hover:text-white'}`}
+                >
+                    Modo Plantilla (Fijo)
+                </button>
+            </div>
+
+            {/* Tabs for Editing */}
+            <div className="flex gap-2 mb-2">
+                <button
+                    onClick={() => setEditMode('prompt')}
+                    className={`text-[10px] font-bold px-3 py-1 rounded-lg border transition-all ${editMode === 'prompt' ? 'border-spartan-yellow text-spartan-yellow bg-spartan-yellow/5' : 'border-white/5 text-gray-500'}`}
+                >
+                    ⚙️ Instrucciones IA
+                </button>
+                <button
+                    onClick={() => setEditMode('static')}
+                    className={`text-[10px] font-bold px-3 py-1 rounded-lg border transition-all ${editMode === 'static' ? 'border-orange-500 text-orange-500 bg-orange-500/5' : 'border-white/5 text-gray-500'}`}
+                >
+                    📝 Mensaje Fijo
+                </button>
+            </div>
+
+            {editMode === 'prompt' ? (
+                <div className="space-y-2 animate-in slide-in-from-left-2 duration-200">
+                    <label className="text-[10px] text-gray-500 font-bold uppercase">Prompt / Instrucciones para el Coach</label>
+                    <textarea
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-spartan-yellow/50 transition-all min-h-[120px]"
+                        value={localPrompt}
+                        onChange={(e) => setLocalPrompt(e.target.value)}
+                        placeholder="Define la personalidad del Coach..."
+                    />
+                </div>
+            ) : (
+                <div className="space-y-2 animate-in slide-in-from-right-2 duration-200">
+                    <label className="text-[10px] text-orange-500/70 font-bold uppercase">Mensaje Fijo que se enviará a todos</label>
+                    <textarea
+                        className="w-full bg-orange-500/5 border border-orange-500/20 rounded-2xl p-4 text-sm text-orange-100/90 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all min-h-[120px]"
+                        value={localStatic}
+                        onChange={(e) => setLocalStatic(e.target.value)}
+                        placeholder="Escribe el mensaje exacto..."
+                    />
+                    <p className="text-[10px] text-orange-500/50 italic">
+                        * En este modo el mensaje es fijo (no IA). Se enviará tal cual cambiando {"{{Nombre}}"}.
+                    </p>
+                </div>
+            )}
 
             {showPreview && (
                 <div className="animate-in zoom-in-95 duration-200">
-                    {getPreviewText()}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-spartan-yellow/20">
+                            <span className="text-xs text-spartan-yellow font-mono">
+                                🤖 Borrador de la IA (Editable)
+                            </span>
+                            <button
+                                onClick={generateText}
+                                disabled={generating}
+                                className="text-[10px] font-bold uppercase text-gray-400 hover:text-white flex items-center gap-1"
+                            >
+                                <RefreshCw size={12} className={generating ? "animate-spin" : ""} /> Generar de nuevo
+                            </button>
+                        </div>
+                        <div className="space-y-3">
+                            <textarea
+                                className="w-full bg-black/60 p-4 rounded-2xl border border-white/10 text-gray-300 text-sm italic leading-relaxed min-h-[120px] focus:outline-none focus:ring-1 focus:ring-white/20"
+                                value={previewText}
+                                onChange={(e) => setPreviewText(e.target.value)}
+                                placeholder={generating ? "Coach pensando..." : "El mensaje de la IA aparecerá aquí..."}
+                            />
+                            {previewText && !generating && (
+                                <button
+                                    onClick={() => {
+                                        setLocalStatic(previewText);
+                                        setEditMode('static');
+                                        onModeChange('static');
+                                        handleSave(previewText);
+                                    }}
+                                    className="w-full bg-orange-500/10 text-orange-500 border border-orange-500/30 py-3 rounded-xl text-[10px] font-bold uppercase hover:bg-orange-500/20 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <CheckCircle size={14} />
+                                    Fijar este mensaje para todos (Activa Plantilla)
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
 
             <div className="flex justify-between items-center gap-4">
                 <button
-                    onClick={() => setShowPreview(!showPreview)}
+                    onClick={handlePreview}
                     className="text-gray-500 hover:text-white flex items-center gap-2 text-xs font-bold uppercase transition-all"
                 >
                     <Eye size={14} />
-                    {showPreview ? 'Ocultar Preview' : 'Ver Preview'}
+                    {showPreview ? 'Ocultar Borrador' : 'Ver Borrador IA'}
                 </button>
-                <button
-                    onClick={() => onSave(localVal)}
-                    disabled={saving}
-                    className="spartan-gradient text-black py-2.5 px-6 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all hover:scale-105"
-                >
-                    <Save size={14} />
-                    {saving ? 'Guardando...' : 'Actualizar Prompt'}
-                </button>
+                <div className="flex items-center gap-3">
+                    {saveStatus && <span className="text-xs text-spartan-yellow font-bold animate-pulse">{saveStatus}</span>}
+                    <button
+                        onClick={() => handleSave()}
+                        disabled={saving}
+                        className={`py-2.5 px-6 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all hover:scale-105 ${editMode === 'prompt' ? 'spartan-gradient text-black bg-spartan-yellow' : 'bg-orange-500 text-black shadow-lg shadow-orange-500/20'}`}
+                    >
+                        <Save size={14} />
+                        {saving ? 'Guardando...' : `Guardar ${editMode === 'prompt' ? 'Instrucciones' : 'Plantilla'}`}
+                    </button>
+                </div>
             </div>
         </div>
     );

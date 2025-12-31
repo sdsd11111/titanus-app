@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import ClientWrapper from "@/components/ClientWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Titanus Fitness | Dashboard",
+  title: "Titanus Gym",
   description: "Sistema de Automatización Spartan",
 };
 
@@ -28,12 +28,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
       >
-        <div className="flex">
-          <Sidebar />
-          <main className="flex-1 min-h-screen p-8 bg-zinc-950/30">
-            {children}
-          </main>
-        </div>
+        <ClientWrapper>{children}</ClientWrapper>
       </body>
     </html>
   );
