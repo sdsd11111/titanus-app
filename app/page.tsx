@@ -40,24 +40,28 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const fetchActivity = async () => {
-      setLoadingActivity(true);
+    const fetchActivity = async (isBackground = false) => {
+      if (!isBackground) setLoadingActivity(true);
       try {
         const res = await axios.get(`/api/dashboard/activity?page=${currentPage}&search=${searchTerm}`);
         setActivityData(res.data);
       } catch (e) {
         console.error("Error activity:", e);
       } finally {
-        setLoadingActivity(false);
+        if (!isBackground) setLoadingActivity(false);
       }
     };
-    fetchActivity(); // Initial fetch
 
-    // Auto-refresh logic (Polling every 5s)
-    const interval = setInterval(() => {
-      if (!loadingActivity) fetchActivity();
-    }, 5000);
-    return () => clearInterval(interval);
+    // Initial fetch (debounced for search)
+    const debounce = setTimeout(() => fetchActivity(false), 500);
+
+    // Polling every 5 seconds (background)
+    const interval = setInterval(() => fetchActivity(true), 5000);
+
+    return () => {
+      clearTimeout(debounce);
+      clearInterval(interval);
+    };
   }, [currentPage, searchTerm]);
 
   return (
