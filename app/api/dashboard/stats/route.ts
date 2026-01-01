@@ -10,7 +10,7 @@ export async function GET() {
         const { count: clientesCount, error: errorClientes } = await supabaseAdmin
             .from('clientes')
             .select('*', { count: 'exact', head: true })
-            .eq('estado', 'activo');
+            .or('estado.eq.activo,estado.is.null');
 
         if (errorClientes) throw errorClientes;
 
@@ -19,7 +19,7 @@ export async function GET() {
             .from('clientes')
             .select('*', { count: 'exact', head: true })
             .eq('fecha_vencimiento', today)
-            .eq('estado', 'activo');
+            .or('estado.eq.activo,estado.is.null');
 
         if (errorVencimientos) throw errorVencimientos;
 
@@ -35,7 +35,7 @@ export async function GET() {
         const { data: allClients, error: errorCumple } = await supabaseAdmin
             .from('clientes')
             .select('fecha_nacimiento')
-            .eq('estado', 'activo');
+            .or('estado.eq.activo,estado.is.null');
 
         if (errorCumple) throw errorCumple;
 

@@ -29,6 +29,7 @@ export default function ConfigPage() {
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [loadingQr, setLoadingQr] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
+    const [tempHora, setTempHora] = useState("");
 
     useEffect(() => {
         fetchConfigs();
@@ -41,6 +42,12 @@ export default function ConfigPage() {
 
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        if (configs.envio_hora && !tempHora) {
+            setTempHora(configs.envio_hora);
+        }
+    }, [configs.envio_hora]);
 
     const fetchConfigs = async () => {
         try {
@@ -290,7 +297,49 @@ export default function ConfigPage() {
                 <div className="space-y-6">
                     <div className="flex items-center gap-2 text-xl font-bold text-spartan-yellow">
                         <Smartphone size={24} />
-                        <h2>Conexión WhatsApp</h2>
+                        <h2>Conexión y Horarios</h2>
+                    </div>
+
+                    {/* Scheduler Card */}
+                    <div className="bg-spartan-charcoal/30 rounded-3xl border border-white/10 p-8 space-y-6">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-spartan-yellow/10 flex items-center justify-center text-spartan-yellow">
+                                <RefreshCw size={20} />
+                            </div>
+                            <div>
+                                <h3 className="font-bold">Horario de Automatización</h3>
+                                <p className="text-xs text-gray-500 text-balance">El bot despertará a esta hora cada día para procesar la lista.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 pt-2">
+                            <div className="relative group">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-4 mb-2 block">Hora de Envío (Formato 24h)</label>
+                                <div className="flex flex-col sm:flex-row items-stretch gap-3">
+                                    <div className="relative flex-1">
+                                        <input
+                                            type="time"
+                                            value={tempHora || configs.envio_hora || "08:00"}
+                                            onChange={(e) => setTempHora(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-3xl font-black text-white focus:outline-none focus:ring-2 focus:ring-spartan-yellow/50 transition-all text-center appearance-none"
+                                        />
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
+                                            <RefreshCw size={24} />
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => saveConfig('envio_hora', tempHora)}
+                                        className="spartan-gradient text-black font-black px-8 py-4 rounded-2xl transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 uppercase tracking-tighter"
+                                    >
+                                        <CheckCircle size={18} />
+                                        Guardar
+                                    </button>
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-gray-600 text-center font-bold px-4">
+                                ℹ️ Configura esto según tu preferencia. Ejemplo: 08:00 para la mañana o 19:00 para la noche.
+                            </p>
+                        </div>
                     </div>
 
                     {/* WhatsApp Status Card */}
