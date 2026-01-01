@@ -51,8 +51,13 @@ export default function Home() {
         setLoadingActivity(false);
       }
     };
-    const debounce = setTimeout(fetchActivity, 500);
-    return () => clearTimeout(debounce);
+    fetchActivity(); // Initial fetch
+
+    // Auto-refresh logic (Polling every 5s)
+    const interval = setInterval(() => {
+      if (!loadingActivity) fetchActivity();
+    }, 5000);
+    return () => clearInterval(interval);
   }, [currentPage, searchTerm]);
 
   return (
