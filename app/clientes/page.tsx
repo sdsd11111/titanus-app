@@ -29,16 +29,13 @@ export default function ClientesPage() {
             const hoy = new Date().toISOString().split('T')[0];
             const [resClientes, resCola] = await Promise.all([
                 axios.get("/api/clientes"),
-                axios.get(`/api/logs`) // Note: logs API filters system logs, better use a direct query or update logs API
+                axios.get(`/api/dashboard/activity?limit=100`)
             ]);
 
-            // Actually, we need to fetch from cola_mensajes for today for all clients
-            // Since there isn't a dedicated "cola-hoy" API yet, I'll use a direct fetch or assume logs API 
-            // for now but realistically we need all entries for today to map them.
-            // Let's assume the logs API returns recent logs including today's message status.
-
             setClientes(resClientes.data);
-            setColaHoy(resCola.data);
+            // The activity API returns { items: [], pagination: {} }
+            // We want to check recent messages to see if sent today.
+            setColaHoy(resCola.data.items || []);
         } catch (error) {
             console.error("Error fetching data:", error);
         } finally {
@@ -55,7 +52,7 @@ export default function ClientesPage() {
         if (!msg) return { label: "Pendiente", class: "bg-gray-500/10 text-gray-500 border-gray-500/20" };
 
         switch (msg.estado) {
-            case 'enviado': return { label: "Enviado", class: "bg-green-500/20 text-green-500 border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.1)]" };
+            case 'enviado': return { label: "Enviado", class: "bg-green-500/20 text-green-500 border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.3)] font-bold" };
             case 'error': return { label: "Error", class: "bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.1)]" };
             case 'pendiente': return { label: "Pendiente", class: "bg-spartan-yellow/20 text-spartan-yellow border-spartan-yellow/30 shadow-[0_0_10px_rgba(252,221,9,0.1)]" };
             default: return { label: msg.estado, class: "bg-white/5 text-gray-400 border-white/10" };

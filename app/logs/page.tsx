@@ -74,7 +74,7 @@ export default function LogsPage() {
                         logs.map((log) => (
                             <div key={log.id} className="group flex gap-4 hover:bg-white/5 p-2 rounded-lg transition-colors">
                                 <span className="text-gray-600 shrink-0 select-none">
-                                    [{new Date(log.fecha_creacion).toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour12: false })}]
+                                    [{new Date(log.fecha_creacion.endsWith('Z') ? log.fecha_creacion : log.fecha_creacion + 'Z').toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour12: false })}]
                                 </span>
                                 <span className="shrink-0">
                                     {log.estado === 'success' || log.estado === 'info' ? (
