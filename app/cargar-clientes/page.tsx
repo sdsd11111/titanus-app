@@ -86,12 +86,12 @@ export default function CargarClientesPage() {
                             <div className="bg-white/5 p-4 rounded-2xl border border-white/10 max-w-md mx-auto">
                                 <div className="grid grid-cols-3 gap-4 text-sm">
                                     <div>
-                                        <div className="text-green-400 font-bold text-2xl">{results?.stats?.inserted || 0}</div>
-                                        <div className="text-gray-500 text-xs uppercase">Nuevos</div>
+                                        <div className="text-white font-bold text-2xl">{results?.stats?.total || 0}</div>
+                                        <div className="text-gray-500 text-xs uppercase">En Archivo</div>
                                     </div>
                                     <div>
-                                        <div className="text-blue-400 font-bold text-2xl">{results?.stats?.updated || 0}</div>
-                                        <div className="text-gray-500 text-xs uppercase">Actualizados</div>
+                                        <div className="text-green-400 font-bold text-2xl">{results?.stats?.inserted_or_updated || 0}</div>
+                                        <div className="text-gray-500 text-xs uppercase">Procesados</div>
                                     </div>
                                     <div>
                                         <div className="text-red-400 font-bold text-2xl">{results?.stats?.errors || 0}</div>

@@ -13,7 +13,8 @@ import {
     Eye,
     ChevronDown,
     Send,
-    LogOut
+    LogOut,
+    Upload
 } from "lucide-react";
 import axios from "axios";
 
@@ -30,6 +31,10 @@ export default function ConfigPage() {
     const [loadingQr, setLoadingQr] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
     const [tempHora, setTempHora] = useState("");
+    const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const [scheduleDate, setScheduleDate] = useState("");
+    const [scheduleTime, setScheduleTime] = useState("");
+    const [scheduledList, setScheduledList] = useState<any[]>([]);
 
     useEffect(() => {
         fetchConfigs();
@@ -47,7 +52,14 @@ export default function ConfigPage() {
         if (configs.envio_hora && !tempHora) {
             setTempHora(configs.envio_hora);
         }
-    }, [configs.envio_hora]);
+        if (configs.difusiones_programadas_json) {
+            try {
+                setScheduledList(JSON.parse(configs.difusiones_programadas_json));
+            } catch (e) {
+                setScheduledList([]);
+            }
+        }
+    }, [configs.envio_hora, configs.difusiones_programadas_json]);
 
     const fetchConfigs = async () => {
         try {
@@ -256,41 +268,198 @@ export default function ConfigPage() {
                         }}
                     />
 
-                    <PromptCard
-                        title="Recordatorio de Vencimiento"
-                        description="Prompt para avisar que la membresía está por terminar."
-                        tipo="vencimiento"
-                        promptValue={configs.prompt_vencimiento || ""}
-                        staticValue={configs.prompt_vencimiento_static || ""}
-                        mode={configs.prompt_vencimiento_mode || 'ai'}
-                        variables={["Nombre", "FechaVencimiento"]}
-                        onSave={saveConfig}
-                        onModeChange={(mode: string) => saveConfig('prompt_vencimiento_mode', mode)}
-                        saving={saving}
-                        provider={configs.ai_provider || 'openai'}
-                        apiKeys={{
-                            openai: configs.openai_api_key,
-                            gemini: configs.gemini_api_key
-                        }}
-                    />
+                    {/* Módulo de Publicidad (Nuevo) */}
+                    <div className="bg-spartan-charcoal/30 rounded-3xl border border-white/10 p-6 space-y-6">
+                        <div className="flex items-center gap-2 text-xl font-bold text-spartan-yellow">
+                            <Zap size={24} />
+                            <h2>Publicidad y Difusión</h2>
+                        </div>
+                        <p className="text-sm text-gray-400">
+                            Envía anuncios masivos a toda tu base de guerreros. Puedes programarlo o enviar al instante.
+                        </p>
 
-                    <PromptCard
-                        title="Seguimiento de Inasistencia"
-                        description="Prompt para motivar al cliente a volver al gym."
-                        tipo="seguimiento"
-                        promptValue={configs.prompt_seguimiento || ""}
-                        staticValue={configs.prompt_seguimiento_static || ""}
-                        mode={configs.prompt_seguimiento_mode || 'ai'}
-                        variables={["Nombre", "DíasInactividad"]}
-                        onSave={saveConfig}
-                        onModeChange={(mode: string) => saveConfig('prompt_seguimiento_mode', mode)}
-                        saving={saving}
-                        provider={configs.ai_provider || 'openai'}
-                        apiKeys={{
-                            openai: configs.openai_api_key,
-                            gemini: configs.gemini_api_key
-                        }}
-                    />
+                        <PromptCard
+                            title="Mensaje de Difusión"
+                            description="Configura el mensaje que recibirán todos tus usuarios."
+                            tipo="publicidad"
+                            promptValue={configs.prompt_publicidad || ""}
+                            staticValue={configs.prompt_publicidad_static || ""}
+                            mode={configs.prompt_publicidad_mode || 'static'} // Default logic
+                            lockMode="static" // Force UI to static
+                            variables={["Nombre"]}
+                            onSave={saveConfig}
+                            onModeChange={(mode: string) => saveConfig('prompt_publicidad_mode', mode)}
+                            saving={saving}
+                            provider={configs.ai_provider || 'openai'}
+                            apiKeys={{
+                                openai: configs.openai_api_key,
+                                gemini: configs.gemini_api_key
+                            }}
+                        />
+
+                        {/* Image Upload for Publicidad */}
+                        <div className="space-y-4 pt-4 border-t border-white/5">
+                            <label className="text-xs text-gray-500 font-bold uppercase tracking-wider block">
+                                Imagen de Campaña (Opcional)
+                            </label>
+
+                            <ImageUploader
+                                currentUrl={configs.publicidad_imagen}
+                                onUpload={(url: string) => saveConfig('publicidad_imagen', url)}
+                            />
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="grid grid-cols-2 gap-4 pt-4">
+                            <button
+                                onClick={async () => {
+                                    if (confirm("⚠️ ¿Estás seguro de ENVIAR AHORA a TODA la base de datos?\n\nEsto pondrá a trabajar al bot inmediatamente.")) {
+                                        try {
+                                            alert("Iniciando proceso... Por favor espera.");
+                                            const res = await axios.post('/api/publicidad/enviar');
+                                            if (res.data.success) {
+                                                alert(`✅ ¡Éxito! ${res.data.count} mensajes encolados.\n\nEl bot está despertando para procesarlos ahora mismo.`);
+                                            }
+                                        } catch (e: any) {
+                                            alert(`❌ Error: ${e.response?.data?.error || e.message}`);
+                                        }
+                                    }
+                                }}
+                                className="bg-spartan-yellow text-black font-extrabold py-4 rounded-xl hover:scale-105 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Send size={20} />
+                                ENVIAR AHORA
+                            </button>
+                            <button
+                                onClick={() => setShowScheduleModal(true)}
+                                className="bg-white/10 text-white font-bold py-4 rounded-xl hover:bg-white/20 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Settings size={20} />
+                                PROGRAMAR
+                            </button>
+                        </div>
+
+                        {/* Scheduled List Display */}
+                        {scheduledList.length > 0 && (
+                            <div className="pt-6 space-y-4 border-t border-white/5 animate-in fade-in duration-500">
+                                <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-2">Próximas Difusiones Programadas</label>
+                                <div className="space-y-3">
+                                    {scheduledList.map((item, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 group hover:border-white/10 transition-all">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-8 w-8 rounded-lg bg-spartan-yellow/10 flex items-center justify-center text-spartan-yellow">
+                                                    <Zap size={16} />
+                                                </div>
+                                                <div>
+                                                    <div className="text-sm font-bold text-white">{new Date(item.fecha + 'T' + item.hora).toLocaleString()}</div>
+                                                    <div className="text-[10px] text-gray-500 uppercase font-black">{item.estado}</div>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    const newList = scheduledList.filter((_, i) => i !== idx);
+                                                    saveConfig('difusiones_programadas_json', JSON.stringify(newList));
+                                                }}
+                                                className="opacity-0 group-hover:opacity-100 p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                            >
+                                                <XCircle size={18} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Schedule Modal */}
+                    {showScheduleModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+                            <div className="bg-spartan-charcoal rounded-3xl border border-white/10 p-8 w-full max-w-md shadow-2xl space-y-6">
+                                <div className="space-y-2">
+                                    <h3 className="text-2xl font-bold text-white">Programar Difusión</h3>
+                                    <p className="text-gray-400 text-sm">Elige cuándo quieres que el bot envíe este mensaje a todos los guerreros.</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Fecha de Envío</label>
+                                        <input
+                                            type="date"
+                                            value={scheduleDate}
+                                            onChange={(e) => setScheduleDate(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-spartan-yellow/50"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Hora de Envío</label>
+                                        <input
+                                            type="time"
+                                            value={scheduleTime}
+                                            onChange={(e) => setScheduleTime(e.target.value)}
+                                            onBlur={(e) => {
+                                                if (!e.target.value) return;
+                                                const [h, m] = e.target.value.split(':').map(Number);
+                                                let newM = Math.round(m / 5) * 5;
+                                                let newH = h;
+                                                if (newM === 60) { newM = 0; newH = (newH + 1) % 24; }
+                                                const fixed = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+                                                setScheduleTime(fixed);
+                                            }}
+                                            step="300"
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-spartan-yellow/50"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4 pt-2">
+                                    <button
+                                        onClick={() => setShowScheduleModal(false)}
+                                        className="flex-1 px-6 py-4 rounded-xl border border-white/10 text-gray-400 font-bold hover:bg-white/5 transition-all"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            if (!scheduleDate || !scheduleTime) {
+                                                alert("Por favor selecciona fecha y hora.");
+                                                return;
+                                            }
+
+                                            // Validation: 5-minute intervals (Double Check)
+                                            const [h, m] = scheduleTime.split(':').map(Number);
+                                            if (m % 5 !== 0) {
+                                                alert("⚠️ La hora se ajustará automáticamente a intervalos de 5 minutos.");
+                                                // Auto-fix before saving if blur didn't catch it
+                                                let newM = Math.round(m / 5) * 5;
+                                                let newH = h;
+                                                if (newM === 60) { newM = 0; newH = (newH + 1) % 24; }
+                                                const fixed = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+                                                setScheduleTime(fixed);
+                                                return; // User clicks again to confirm
+                                            }
+
+                                            // FIX: Guardar snapshot del mensaje e imagen actuales para que sean únicos por programación
+                                            const newItem = {
+                                                fecha: scheduleDate,
+                                                hora: scheduleTime,
+                                                estado: 'pendiente',
+                                                mensaje: configs.prompt_publicidad_static || "",
+                                                imagen: configs.publicidad_imagen || ""
+                                            };
+                                            const newList = [...scheduledList, newItem];
+                                            await saveConfig('difusiones_programadas_json', JSON.stringify(newList));
+                                            setShowScheduleModal(false);
+                                            setScheduleDate("");
+                                            setScheduleTime("");
+                                        }}
+                                        className="flex-1 px-6 py-4 rounded-xl spartan-gradient text-black font-black hover:scale-105 transition-all"
+                                    >
+                                        Confirmar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* WhatsApp Section */}
@@ -321,6 +490,16 @@ export default function ConfigPage() {
                                             type="time"
                                             value={tempHora || configs.envio_hora || "08:00"}
                                             onChange={(e) => setTempHora(e.target.value)}
+                                            onBlur={(e) => {
+                                                if (!e.target.value) return;
+                                                const [h, m] = e.target.value.split(':').map(Number);
+                                                let newM = Math.round(m / 5) * 5;
+                                                let newH = h;
+                                                if (newM === 60) { newM = 0; newH = (newH + 1) % 24; }
+                                                const fixed = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+                                                setTempHora(fixed);
+                                            }}
+                                            step="300"
                                             className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-3xl font-black text-white focus:outline-none focus:ring-2 focus:ring-spartan-yellow/50 transition-all text-center appearance-none"
                                         />
                                         <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
@@ -328,7 +507,21 @@ export default function ConfigPage() {
                                         </div>
                                     </div>
                                     <button
-                                        onClick={() => saveConfig('envio_hora', tempHora)}
+                                        onClick={() => {
+                                            const hora = tempHora || configs.envio_hora || "08:00";
+                                            if (!hora) return;
+
+                                            const [h, m] = hora.split(':').map(Number);
+
+                                            if (m % 5 !== 0) {
+                                                alert("⚠️ Por favor usa intervalos de 5 minutos.\n\nEjemplos válidos: 08:00, 08:05, 08:10\n\nEsto asegura que el bot se despierte exactamente a esa hora.");
+                                                return;
+                                            }
+
+                                            if (confirm(`⚠️ ¿CONFIRMAS EL CAMBIO DE HORA?\n\nNueva hora de ejecución: ${hora}\n\nEl bot ajustará su reloj interno automáticamente.`)) {
+                                                saveConfig('envio_hora', hora);
+                                            }
+                                        }}
                                         className="spartan-gradient text-black font-black px-8 py-4 rounded-2xl transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 uppercase tracking-tighter"
                                     >
                                         <CheckCircle size={18} />
@@ -337,7 +530,7 @@ export default function ConfigPage() {
                                 </div>
                             </div>
                             <p className="text-[10px] text-gray-600 text-center font-bold px-4">
-                                ℹ️ Configura esto según tu preferencia. Ejemplo: 08:00 para la mañana o 19:00 para la noche.
+                                ℹ️ Configura esto según tu preferencia. Ejemplo: 08:00 para la mañana o 19:00 para la noche. (Intervalos de 5 minutos).
                             </p>
                         </div>
                     </div>
@@ -497,6 +690,41 @@ export default function ConfigPage() {
                             )}
                         </div>
                     </div>
+                    {/* Maintenance Zone - HIDDEN FOR PRODUCTION
+                    <div className="bg-red-500/5 rounded-3xl border border-red-500/20 p-8 space-y-6 mt-8">
+                        <div className="flex items-center gap-2 text-xl font-bold text-red-500">
+                            <RefreshCw size={24} />
+                            <h2>Zona de Mantenimiento</h2>
+                        </div>
+                        <p className="text-sm text-gray-400">
+                            Herramientas avanzadas para gestionar el estado del bot. Úsalas con precaución.
+                        </p>
+
+                        <div className="pt-4 border-t border-red-500/10">
+                            <button
+                                onClick={async () => {
+                                    if (confirm("⚠️ ¿PELIGRO: Estás seguro de limpiar TODA la cola de mensajes?\n\nSe eliminarán todos los mensajes pendientes de envío. Esta acción no se puede deshacer.")) {
+                                        try {
+                                            const res = await axios.post('/api/queue/clear');
+                                            if (res.data.success) {
+                                                alert(`✅ Cola limpiada exitosamente.\n\nSe eliminaron ${res.data.count} mensajes.`);
+                                            }
+                                        } catch (e: any) {
+                                            alert(`❌ Error al limpiar cola: ${e.response?.data?.error || e.message}`);
+                                        }
+                                    }
+                                }}
+                                className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                            >
+                                <RefreshCw size={20} />
+                                Limpiar Cola de Mensajes
+                            </button>
+                            <p className="text-[10px] text-red-400/60 text-center mt-2 font-bold uppercase">
+                                * Elimina todos los mensajes pendientes para reiniciar pruebas.
+                            </p>
+                        </div>
+                    </div>
+                    */}
                 </div>
             </div>
         </div>
@@ -543,14 +771,81 @@ function KeyInput({ label, placeholder, value, onSave }: any) {
     );
 }
 
-function PromptCard({ title, description, tipo, promptValue, staticValue, mode, variables, onSave, onModeChange, saving, provider, apiKeys }: any) {
+// --- NEW COMPONENT: ImageUploader ---
+function ImageUploader({ currentUrl, onUpload }: { currentUrl: string, onUpload: (url: string) => void }) {
+    const [uploading, setUploading] = useState(false);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || !e.target.files[0]) return;
+
+        const file = e.target.files[0];
+        setUploading(true);
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await axios.post('/api/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            onUpload(response.data.url);
+        } catch (error) {
+            console.error("Upload error:", error);
+            alert("Error al subir la imagen");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            {currentUrl && (
+                <div className="relative group w-full max-w-sm rounded-2xl overflow-hidden border border-white/10">
+                    <img src={currentUrl} alt="Campaña" className="w-full h-auto" />
+                    <button
+                        onClick={() => onUpload('')}
+                        className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity transform hover:scale-110"
+                        title="Eliminar imagen"
+                    >
+                        <XCircle size={16} />
+                    </button>
+                </div>
+            )}
+
+            <div className="flex gap-4 items-center">
+                <label className="flex-1 cursor-pointer">
+                    <div className="bg-white/5 border border-white/10 border-dashed hover:border-spartan-yellow/50 hover:bg-white/10 rounded-2xl p-4 flex items-center justify-center gap-3 transition-all">
+                        {uploading ? (
+                            <RefreshCw className="animate-spin text-spartan-yellow" size={24} />
+                        ) : (
+                            <Upload className="text-gray-400" size={24} />
+                        )}
+                        <span className="text-sm font-bold text-gray-300">
+                            {uploading ? "Subiendo..." : (currentUrl ? "Cambiar Imagen" : "Subir Imagen")}
+                        </span>
+                        <input
+                            type="file"
+                            className="hidden"
+                            onChange={handleFileChange}
+                            accept="image/*"
+                            disabled={uploading}
+                        />
+                    </div>
+                </label>
+            </div>
+        </div>
+    );
+}
+
+// --- UPDATED COMPONENT: PromptCard (with lockMode) ---
+function PromptCard({ title, description, tipo, promptValue, staticValue, mode, lockMode, variables, onSave, onModeChange, saving, provider, apiKeys }: any) {
     const [localPrompt, setLocalPrompt] = useState(promptValue);
     const [localStatic, setLocalStatic] = useState(staticValue);
     const [showPreview, setShowPreview] = useState(false);
     const [previewText, setPreviewText] = useState("");
     const [generating, setGenerating] = useState(false);
-    const [isManual, setIsManual] = useState(mode === 'static');
-    const [editMode, setEditMode] = useState<'prompt' | 'static'>(mode === 'static' ? 'static' : 'prompt');
+    const [isManual, setIsManual] = useState(mode === 'static' || lockMode === 'static');
+    const [editMode, setEditMode] = useState<'prompt' | 'static'>((mode === 'static' || lockMode === 'static') ? 'static' : 'prompt');
     const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
     useEffect(() => {
@@ -559,9 +854,15 @@ function PromptCard({ title, description, tipo, promptValue, staticValue, mode, 
     }, [promptValue, staticValue]);
 
     useEffect(() => {
-        setIsManual(mode === 'static');
-        setEditMode(mode === 'static' ? 'static' : 'prompt');
-    }, [mode]);
+        // If locked, maximize static mode logic
+        if (lockMode === 'static') {
+            setIsManual(true);
+            // Don't force editMode here, let user switch tabs
+        } else {
+            setIsManual(mode === 'static');
+            setEditMode(mode === 'static' ? 'static' : 'prompt');
+        }
+    }, [mode, lockMode]);
 
     const handlePreview = async () => {
         if (!showPreview) {
@@ -624,21 +925,23 @@ function PromptCard({ title, description, tipo, promptValue, staticValue, mode, 
                 </div>
             </div>
 
-            {/* Mode Switcher */}
-            <div className="flex items-center justify-between p-1 bg-black/40 rounded-2xl border border-white/5">
-                <button
-                    onClick={() => onModeChange('ai')}
-                    className={`flex-1 py-2 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${!isManual ? 'bg-spartan-yellow text-black' : 'text-gray-500 hover:text-white'}`}
-                >
-                    Modo IA (Dinámico)
-                </button>
-                <button
-                    onClick={() => onModeChange('static')}
-                    className={`flex-1 py-2 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${isManual ? 'bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.3)]' : 'text-gray-500 hover:text-white'}`}
-                >
-                    Modo Plantilla (Fijo)
-                </button>
-            </div>
+            {/* Mode Switcher - HIDDEN IF LOCKED */}
+            {!lockMode && (
+                <div className="flex items-center justify-between p-1 bg-black/40 rounded-2xl border border-white/5">
+                    <button
+                        onClick={() => onModeChange('ai')}
+                        className={`flex-1 py-2 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${!isManual ? 'bg-spartan-yellow text-black' : 'text-gray-500 hover:text-white'}`}
+                    >
+                        Modo IA (Dinámico)
+                    </button>
+                    <button
+                        onClick={() => onModeChange('static')}
+                        className={`flex-1 py-2 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${isManual ? 'bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.3)]' : 'text-gray-500 hover:text-white'}`}
+                    >
+                        Modo Plantilla (Fijo)
+                    </button>
+                </div>
+            )}
 
             {/* Tabs for Editing */}
             <div className="flex gap-2 mb-2">
@@ -708,7 +1011,7 @@ function PromptCard({ title, description, tipo, promptValue, staticValue, mode, 
                                     onClick={() => {
                                         setLocalStatic(previewText);
                                         setEditMode('static');
-                                        onModeChange('static');
+                                        if (!lockMode) onModeChange('static'); // Only switch if not locked
                                         handleSave(previewText);
                                     }}
                                     className="w-full bg-orange-500/10 text-orange-500 border border-orange-500/30 py-3 rounded-xl text-[10px] font-bold uppercase hover:bg-orange-500/20 transition-all flex items-center justify-center gap-2"
@@ -745,3 +1048,4 @@ function PromptCard({ title, description, tipo, promptValue, staticValue, mode, 
         </div>
     );
 }
+

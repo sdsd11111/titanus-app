@@ -16,6 +16,15 @@ import {
 export default function LogsPage() {
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [now, setNow] = useState<string>("");
+
+    useEffect(() => {
+        setNow(new Date().toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour12: false }));
+        const timer = setInterval(() => {
+            setNow(new Date().toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour12: false }));
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     const fetchLogs = async () => {
         setLoading(true);
@@ -74,7 +83,15 @@ export default function LogsPage() {
                         logs.map((log) => (
                             <div key={log.id} className="group flex gap-4 hover:bg-white/5 p-2 rounded-lg transition-colors">
                                 <span className="text-gray-600 shrink-0 select-none">
-                                    [{new Date(log.fecha_creacion.endsWith('Z') ? log.fecha_creacion : log.fecha_creacion + 'Z').toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour12: false })}]
+                                    [{(() => {
+                                        try {
+                                            const d = log.fecha_creacion;
+                                            const dateObj = new Date(d.endsWith('Z') || d.includes('+') ? d : d + 'Z');
+                                            return isNaN(dateObj.getTime()) ? "??:??:??" : dateObj.toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour12: false });
+                                        } catch {
+                                            return "??:??:??";
+                                        }
+                                    })()}]
                                 </span>
                                 <span className="shrink-0">
                                     {log.estado === 'success' || log.estado === 'info' ? (
@@ -95,7 +112,7 @@ export default function LogsPage() {
                     )}
                     <div className="flex gap-4 p-2">
                         <span className="text-gray-600">
-                            [{new Date().toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour12: false })}]
+                            {now ? `[${now}]` : "..."}
                         </span>
                         <span className="text-spartan-yellow animate-pulse">_</span>
                     </div>

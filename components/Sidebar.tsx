@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-    LayoutDashboard,
     Users,
     MessageSquare,
     Settings,
@@ -19,7 +18,6 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const navItems = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Cargar Clientes", href: "/cargar-clientes", icon: Users },
     { name: "Clientes", href: "/clientes", icon: Users }, // Keeping this as it's useful
     { name: "Conectar WhatsApp", href: "/configuracion", icon: MessageSquare },
@@ -32,12 +30,12 @@ export default function Sidebar() {
 
     return (
         <div className="flex flex-col h-screen w-64 bg-spartan-black border-r border-white/10 text-white">
-            <div className="p-6 flex items-center gap-3">
+            <Link href="/" className="p-6 flex items-center gap-3 hover:opacity-80 transition-opacity">
                 <div className="bg-spartan-yellow p-2 rounded-lg">
                     <Dumbbell className="text-black h-6 w-6" />
                 </div>
                 <span className="font-bold text-xl tracking-tight">TITANUS</span>
-            </div>
+            </Link>
 
             <nav className="flex-1 px-4 space-y-2 mt-4">
                 {navItems.map((item) => {

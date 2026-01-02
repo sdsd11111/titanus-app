@@ -47,14 +47,14 @@ export default function ClientesPage() {
         fetchData();
     }, []);
 
-    const getStatusForClient = (telefono: string) => {
-        const msg = colaHoy.find(m => m.telefono === telefono && m.tipo !== 'log');
-        if (!msg) return { label: "Pendiente", class: "bg-gray-500/10 text-gray-500 border-gray-500/20" };
+    const getStatusForClient = (telefono: string, tipo: string) => {
+        const msg = colaHoy.find(m => m.telefono === telefono && m.tipo === tipo);
+        if (!msg) return { label: "No Programado", class: "bg-gray-500/10 text-gray-400 border-gray-500/10" };
 
         switch (msg.estado) {
             case 'enviado': return { label: "Enviado", class: "bg-green-500/20 text-green-500 border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.3)] font-bold" };
-            case 'error': return { label: "Error", class: "bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.1)]" };
-            case 'pendiente': return { label: "Pendiente", class: "bg-spartan-yellow/20 text-spartan-yellow border-spartan-yellow/30 shadow-[0_0_10px_rgba(252,221,9,0.1)]" };
+            case 'error': return { label: "Error", class: "bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.1)] font-bold" };
+            case 'pendiente': return { label: "Pendiente", class: "bg-spartan-yellow/20 text-spartan-yellow border-spartan-yellow/30 shadow-[0_0_10px_rgba(252,221,9,0.1)] animation-pulse" };
             default: return { label: msg.estado, class: "bg-white/5 text-gray-400 border-white/10" };
         }
     };
@@ -129,8 +129,8 @@ export default function ClientesPage() {
                                     <th className="px-8 py-5 text-center w-20">#</th>
                                     <th className="px-6 py-5">Guerrero</th>
                                     <th className="px-6 py-5">📅 Nacimiento</th>
-                                    <th className="px-6 py-5 text-center">Estado del Envío</th>
-                                    <th className="px-6 py-5">Vencimiento</th>
+                                    <th className="px-6 py-5 text-center whitespace-nowrap">Estado Envío/ Cumpleaños</th>
+                                    <th className="px-6 py-5 text-center whitespace-nowrap">Estado Envío/ Publicidad</th>
                                     <th className="px-8 py-5 text-right"></th>
                                 </tr>
                             </thead>
@@ -154,7 +154,6 @@ export default function ClientesPage() {
                                         const [vYear, vMonth, vDay] = (cliente.fecha_vencimiento || "2000-01-01").split('-');
                                         const vencimiento = new Date(Number(vYear), Number(vMonth) - 1, Number(vDay));
                                         const diffDays = Math.ceil((vencimiento.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-                                        const delivery = getStatusForClient(cliente.telefono);
 
                                         return (
                                             <tr key={cliente.id} className="hover:bg-white/5 transition-all group">
@@ -182,17 +181,14 @@ export default function ClientesPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-6 text-center">
-                                                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${delivery.class}`}>
-                                                        {delivery.label}
+                                                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${getStatusForClient(cliente.telefono, 'cumpleaños').class}`}>
+                                                        {getStatusForClient(cliente.telefono, 'cumpleaños').label}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-6 font-medium">
-                                                    <div className={`text-sm ${diffDays <= 0 ? 'text-red-500' : diffDays <= 3 ? 'text-spartan-yellow' : 'text-gray-300'}`}>
-                                                        {`${vDay}/${vMonth}/${vYear}`}
-                                                    </div>
-                                                    <div className="text-[10px] uppercase font-bold text-gray-600">
-                                                        {diffDays === 0 ? 'Expiró Hoy' : diffDays < 0 ? `Vencido (${Math.abs(diffDays)}d)` : `En ${diffDays} días`}
-                                                    </div>
+                                                <td className="px-6 py-6 text-center">
+                                                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${getStatusForClient(cliente.telefono, 'publicidad').class}`}>
+                                                        {getStatusForClient(cliente.telefono, 'publicidad').label}
+                                                    </span>
                                                 </td>
                                                 <td className="px-8 py-6 text-right">
                                                     <button
