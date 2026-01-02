@@ -313,15 +313,24 @@ export default function ConfigPage() {
                         <div className="grid grid-cols-2 gap-4 pt-4">
                             <button
                                 onClick={async () => {
-                                    if (confirm("⚠️ ¿Estás seguro de ENVIAR AHORA a TODA la base de datos?\n\nEsto pondrá a trabajar al bot inmediatamente.")) {
+                                    if (confirm("⚠️ ¿Estás seguro de INICIAR EL ENVÍO AHORA a TODA la base de datos?\n\nEl sistema enviará los mensajes por lotes de 20 por hora (máx 80 al día) para proteger tu cuenta de WhatsApp.")) {
                                         try {
-                                            alert("Iniciando proceso... Por favor espera.");
-                                            const res = await axios.post('/api/publicidad/enviar');
-                                            if (res.data.success) {
-                                                alert(`✅ ¡Éxito! ${res.data.count} mensajes encolados.\n\nEl bot está despertando para procesarlos ahora mismo.`);
-                                            }
+                                            const now = new Date();
+                                            const today = now.toISOString().split('T')[0];
+                                            const time = now.toLocaleTimeString('es-EC', { hour12: false, hour: '2-digit', minute: '2-digit' });
+
+                                            const newItem = {
+                                                fecha: today,
+                                                hora: time,
+                                                estado: 'pendiente',
+                                                mensaje: configs.prompt_publicidad_static || "",
+                                                imagen: configs.publicidad_imagen || ""
+                                            };
+                                            const newList = [...scheduledList, newItem];
+                                            await saveConfig('difusiones_programadas_json', JSON.stringify(newList));
+                                            alert("✅ ¡Envío Iniciado! El bot procesará el primer lote de 20 mensajes en unos minutos.");
                                         } catch (e: any) {
-                                            alert(`❌ Error: ${e.response?.data?.error || e.message}`);
+                                            alert(`❌ Error al iniciar envío: ${e.message}`);
                                         }
                                     }
                                 }}
