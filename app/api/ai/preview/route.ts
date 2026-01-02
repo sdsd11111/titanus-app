@@ -27,19 +27,10 @@ export async function POST(request: Request) {
             return NextResponse.json({ result: "⚠️ Falta la API Key del proveedor seleccionado. Guárdala primero." });
         }
 
-        // Replace variables
+        // NOTA: Ya no pre-rellenamos el prompt aquí, para que la IA aprenda a usar {{Nombre}}
         let filledPrompt = prompt;
-        // Mock data defaults
-        const mockData: any = {
-            "Nombre": variables.Nombre || "Spartacus",
-            "FechaVencimiento": variables.FechaVencimiento || "mañana",
-            "DíasInactividad": variables.DíasInactividad || "5"
-        };
-
-        // Simple replace {{Key}}
-        for (const [key, val] of Object.entries(mockData)) {
-            filledPrompt = filledPrompt.replace(new RegExp(`{{${key}}}`, 'g'), val);
-        }
+        const systemRule = "REGLA CRÍTICA: NO uses nombres propios reales en tu respuesta. USA SIEMPRE el placeholder {{Nombre}} para referirte al cliente. Ejemplo: '¡Hola {{Nombre}}!'";
+        const finalPromptForAI = `SYSTEM RULE: ${systemRule}\n\nUSER PROMPT: ${filledPrompt}`;
 
         let aiResponse = "";
 
@@ -57,8 +48,8 @@ export async function POST(request: Request) {
                 body: JSON.stringify({
                     model: selectedModel,
                     messages: [
-                        { role: "system", content: "Eres un asistente de Titanus Fitness." },
-                        { role: "user", content: filledPrompt }
+                        { role: "system", content: "Eres un asistente de Titanus Fitness. REGLA: Usa placeholders tipo {{Nombre}} siempre que sea posible." },
+                        { role: "user", content: finalPromptForAI }
                     ]
                 })
             });
@@ -100,7 +91,7 @@ export async function POST(request: Request) {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: filledPrompt }] }]
+                    contents: [{ parts: [{ text: finalPromptForAI }] }]
                 })
             });
 
