@@ -73,13 +73,13 @@ export default function Home() {
         </div>
         {stats && (
           <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 rounded-2xl">
-            <div className={`h-2.5 w-2.5 rounded-full animate-pulse ${(stats.bot_heartbeat && (Date.now() - new Date(stats.bot_heartbeat).getTime()) < 30 * 60 * 1000)
+            <div className={`h-2.5 w-2.5 rounded-full animate-pulse ${(stats.bot_heartbeat && (Date.now() - new Date(stats.bot_heartbeat).getTime()) < 7 * 60 * 1000)
               ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'
               : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'
               }`} />
             <div className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Bot System: <span className={(stats.bot_heartbeat && (Date.now() - new Date(stats.bot_heartbeat).getTime()) < 30 * 60 * 1000) ? 'text-green-400' : 'text-red-400'}>
-                {(stats.bot_heartbeat && (Date.now() - new Date(stats.bot_heartbeat).getTime()) < 30 * 60 * 1000) ? 'En Línea' : 'Desconectado'}
+              Bot System: <span className={(stats.bot_heartbeat && (Date.now() - new Date(stats.bot_heartbeat).getTime()) < 7 * 60 * 1000) ? 'text-green-400' : 'text-red-400'}>
+                {(stats.bot_heartbeat && (Date.now() - new Date(stats.bot_heartbeat).getTime()) < 7 * 60 * 1000) ? 'En Línea' : 'Desconectado'}
               </span>
             </div>
           </div>
