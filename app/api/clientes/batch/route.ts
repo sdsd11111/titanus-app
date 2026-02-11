@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import pool from '@/lib/mysql';
 
 // Helper to clean phone numbers (handles scientific notation and strings)
 function cleanPhoneNumber(phone: any): string {
@@ -8,13 +8,10 @@ function cleanPhoneNumber(phone: any): string {
 
     // Handle scientific notation e.g. "5.93967E+11" or "5,93967E+11"
     if (phoneStr.toUpperCase().includes('E+')) {
-        // Try parsing as float first to expand it
         try {
-            // Replace comma with dot for JS float parsing if present
             const normalized = phoneStr.replace(',', '.');
             const num = parseFloat(normalized);
             if (!isNaN(num)) {
-                // expanding: 5.93967E+11 -> 593967000000
                 phoneStr = num.toLocaleString('fullwide', { useGrouping: false });
             }
         } catch (e) {
@@ -32,21 +29,17 @@ function cleanPhoneNumber(phone: any): string {
 function parseDate(input: any): string | null {
     if (!input) return null;
 
-    // Case 1: Already YYYY-MM-DD
     if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
         return input;
     }
 
-    // Case 2: DD/MM/YYYY or D/M/YYYY
     if (typeof input === 'string' && input.includes('/')) {
-        const parts = input.split('/'); // 31/12/1990
+        const parts = input.split('/');
         if (parts.length === 3) {
-            // Check if it's DD/MM/YYYY or MM/DD/YYYY? Assuming DD/MM/YYYY based on user input
             let day = parseInt(parts[0]);
             let month = parseInt(parts[1]);
             let year = parseInt(parts[2]);
 
-            // Fix 2-digit years if necessary (though usually 4)
             if (year < 100) year += 2000;
 
             if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
@@ -55,12 +48,10 @@ function parseDate(input: any): string | null {
         }
     }
 
-    // Case 3: Excel Serial Number
     const serialNum = Number(input);
-    if (!isNaN(serialNum) && serialNum > 20000) { // arbitrary check to ensure it looks like a recent-ish serial date
-        // Excel epoch starts at December 30, 1899
+    if (!isNaN(serialNum) && serialNum > 20000) {
         const excelEpoch = new Date(1899, 11, 30);
-        const date = new Date(excelEpoch.getTime() + serialNum * 86400000); // 86400000 ms per day
+        const date = new Date(excelEpoch.getTime() + serialNum * 86400000);
 
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -75,22 +66,18 @@ export async function POST(request: Request) {
     try {
         const rawBody = await request.json();
 
-        // 1. Validar input
         if (!Array.isArray(rawBody)) {
             return NextResponse.json({ error: "Formato inválido. Se espera un array de clientes." }, { status: 400 });
         }
 
-        // 2. Preprocesar y Deduplicar
         const uniqueClients = new Map<string, any>();
 
         for (const client of rawBody) {
             const cleanPhone = cleanPhoneNumber(client.telefono);
-
-            // Skip rows without valid phone
             if (!cleanPhone || cleanPhone.length < 5) continue;
 
             const processedClient = {
-                telefono: cleanPhone, // Unique Key
+                telefono: cleanPhone,
                 nombre: client.nombre ? String(client.nombre).trim() : 'Sin Nombre',
                 fecha_vencimiento: parseDate(client.fecha_vencimiento),
                 fecha_nacimiento: parseDate(client.fecha_nacimiento),
@@ -99,7 +86,6 @@ export async function POST(request: Request) {
                 inasistencias: client.inasistencias ? Number(client.inasistencias) : 0
             };
 
-            // If duplicate exists, overwrite with the latest one (or stick with first? User's CSV suggests multiple rows for same phone. We keep LAST seen to update.)
             uniqueClients.set(cleanPhone, processedClient);
         }
 
@@ -114,26 +100,31 @@ export async function POST(request: Request) {
 
         console.log(`Processing batch: ${rawBody.length} rows -> ${clientsToUpsert.length} unique clients`);
 
-        // 3. Upsert
-        const { data, error } = await supabaseAdmin
-            .from('clientes')
-            .upsert(clientsToUpsert, { onConflict: 'telefono', ignoreDuplicates: false })
-            .select();
-
-        if (error) {
-            console.error("Supabase Batch Upsert Error:", error);
-            throw new Error(error.message);
+        // Batch UPSERT for MySQL
+        // We do this by iterating for now, or using a complex query. 
+        // For simplicity and to avoid query length limits, we'll process them in the pool.
+        let insertedOrUpdated = 0;
+        for (const client of clientsToUpsert) {
+            await pool.query(
+                `INSERT INTO clientes (telefono, nombre, fecha_vencimiento, fecha_nacimiento, estado, deuda, inasistencias) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?) 
+                 ON DUPLICATE KEY UPDATE 
+                 nombre = VALUES(nombre), 
+                 fecha_vencimiento = VALUES(fecha_vencimiento), 
+                 fecha_nacimiento = VALUES(fecha_nacimiento), 
+                 estado = VALUES(estado), 
+                 deuda = VALUES(deuda), 
+                 inasistencias = VALUES(inasistencias)`,
+                [client.telefono, client.nombre, client.fecha_vencimiento, client.fecha_nacimiento, client.estado, client.deuda, client.inasistencias]
+            );
+            insertedOrUpdated++;
         }
-
-        // Calcular estadísticas
-        // Si data es vacío (puede pasar en upsert si no cambia nada a veces), asumimos éxito basado en input
-        const totalProcessed = data && data.length > 0 ? data.length : clientsToUpsert.length;
 
         return NextResponse.json({
             message: "Carga masiva completada exitosamente",
             stats: {
                 total: rawBody.length,
-                inserted_or_updated: totalProcessed,
+                inserted_or_updated: insertedOrUpdated,
                 errors: 0
             }
         });

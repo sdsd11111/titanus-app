@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import pool from '@/lib/mysql';
 
 export async function GET() {
     try {
-        const { data, error } = await supabaseAdmin
-            .from('configuracion')
-            .select('*');
+        const [rows]: any = await pool.query('SELECT * FROM configuracion');
 
-        if (error) throw error;
-
-        const configMap = data.reduce((acc: any, row: any) => {
+        const configMap = rows.reduce((acc: any, row: any) => {
             let valor = row.valor;
             // Full hardening: Don't even send masked keys to the frontend
             if (row.clave.includes('_api_key') && valor && valor.length > 5) {
@@ -46,11 +42,10 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: true });
         }
 
-        const { error } = await supabaseAdmin
-            .from('configuracion')
-            .upsert({ clave, valor }, { onConflict: 'clave' });
-
-        if (error) throw error;
+        await pool.query(
+            'INSERT INTO configuracion (clave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)',
+            [clave, valor]
+        );
 
         return NextResponse.json({ success: true });
     } catch (error: any) {

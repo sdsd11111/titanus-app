@@ -1,73 +1,50 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import pool from '@/lib/mysql';
 
 export async function GET() {
     try {
-        const today = new Date().toISOString().split('T')[0];
-        const [year, month, day] = today.split('-');
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth() + 1;
+        const day = today.getDate();
+        const todayStr = today.toISOString().split('T')[0];
 
         // 1. Clientes Activos
-        const { count: clientesCount, error: errorClientes } = await supabaseAdmin
-            .from('clientes')
-            .select('*', { count: 'exact', head: true })
-            .or('estado.eq.activo,estado.is.null');
-
-        if (errorClientes) throw errorClientes;
+        const [clientesResult]: any = await pool.query(
+            "SELECT COUNT(*) as count FROM clientes WHERE estado = 'activo' OR estado IS NULL"
+        );
+        const clientesCount = clientesResult[0].count;
 
         // 2. Vencimientos Hoy
-        const { count: vencimientosHoy, error: errorVencimientos } = await supabaseAdmin
-            .from('clientes')
-            .select('*', { count: 'exact', head: true })
-            .eq('fecha_vencimiento', today)
-            .or('estado.eq.activo,estado.is.null');
+        const [vencimientosResult]: any = await pool.query(
+            "SELECT COUNT(*) as count FROM clientes WHERE fecha_vencimiento = ? AND (estado = 'activo' OR estado IS NULL)",
+            [todayStr]
+        );
+        const vencimientosHoy = vencimientosResult[0].count;
 
-        if (errorVencimientos) throw errorVencimientos;
-
-        // 3. Cumpleaños Hoy (Supabase no tiene EXTRACT directo fácil en JS, usamos filtro de rango o RPC si fuera complejo, pero aquí podemos traer los de hoy si la fecha coincide en dia/mes)
-        // Nota: Filtrar por día/mes exacto en Supabase JS client es complejo sin RPC.
-        // Solución alternativa eficiente: Traer todos los activos y filtrar en memoria (si son pocos) O usar una función de base de datos.
-        // Para mantener JS puro: Usaremos una query simple o RPC si existe.
-        // Dado que migramos de SQL puro, lo mejor es crear un RPC 'get_birthdays' o filtrar en cliente si son < 1000.
-        // Vamos a asumir volumen bajo por ahora y traer campos necesarios.
-
-        // OPCIÓN MEJORADA: RPC call (pero requiere crear función).
-        // OPCIÓN RÁPIDA (JS Filter):
-        const { data: allClients, error: errorCumple } = await supabaseAdmin
-            .from('clientes')
-            .select('fecha_nacimiento')
-            .or('estado.eq.activo,estado.is.null');
-
-        if (errorCumple) throw errorCumple;
-
-        const cumpleañosHoyCount = allClients?.filter(c => {
-            if (!c.fecha_nacimiento) return false;
-            const d = new Date(c.fecha_nacimiento);
-            // Ajustar zona horaria si es necesario, pero asumiendo string YYYY-MM-DD directo
-            const nacMonth = parseInt(c.fecha_nacimiento.split('-')[1]);
-            const nacDay = parseInt(c.fecha_nacimiento.split('-')[2]);
-            return nacMonth === parseInt(month) && nacDay === parseInt(day);
-        }).length || 0;
-
+        // 3. Cumpleaños Hoy
+        const [cumpleResult]: any = await pool.query(
+            "SELECT COUNT(*) as count FROM clientes WHERE MONTH(fecha_nacimiento) = ? AND DAY(fecha_nacimiento) = ? AND (estado = 'activo' OR estado IS NULL)",
+            [month, day]
+        );
+        const cumpleañosHoyCount = cumpleResult[0].count;
 
         // 4. Mensajes Enviados Total
-        const { count: mensajesEnviados, error: errorMensajes } = await supabaseAdmin
-            .from('cola_mensajes')
-            .select('*', { count: 'exact', head: true })
-            .eq('estado', 'enviado');
-
-        if (errorMensajes) throw errorMensajes;
+        const [mensajesResult]: any = await pool.query(
+            "SELECT COUNT(*) as count FROM cola_mensajes WHERE estado = 'enviado'"
+        );
+        const mensajesEnviados = mensajesResult[0].count;
 
         // 5. Bot Heartbeat
-        const { data: hbData } = await supabaseAdmin
-            .from('configuracion')
-            .select('valor')
-            .eq('clave', 'bot_heartbeat')
-            .single();
+        const [hbResult]: any = await pool.query(
+            "SELECT valor FROM configuracion WHERE clave = 'bot_heartbeat'"
+        );
+        const hbData = hbResult[0];
 
         return NextResponse.json({
             total_clientes: clientesCount || 0,
             vencimientos_hoy: vencimientosHoy || 0,
-            cumpleaños_hoy: cumpleañosHoyCount,
+            cumpleaños_hoy: cumpleañosHoyCount || 0,
             mensajes_enviados: mensajesEnviados || 0,
             bot_heartbeat: hbData?.valor || null
         });
