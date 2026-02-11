@@ -37,9 +37,9 @@ export async function GET() {
         );
         const mensajesEnviados = mensajesResult[0].count;
 
-        // 5. Bot Heartbeat
+        // 5. Bot Heartbeat y diferencia de tiempo (para evitar drift de relojes)
         const [hbResult]: any = await pool.query(
-            "SELECT valor FROM configuracion WHERE clave = 'bot_heartbeat'"
+            "SELECT valor, TIMESTAMPDIFF(SECOND, valor, NOW()) as seconds_diff FROM configuracion WHERE clave = 'bot_heartbeat'"
         );
         const hbData = hbResult[0];
 
@@ -48,7 +48,8 @@ export async function GET() {
             vencimientos_hoy: vencimientosHoy || 0,
             cumpleaños_hoy: cumpleañosHoyCount || 0,
             mensajes_enviados: mensajesEnviados || 0,
-            bot_heartbeat: hbData?.valor ? `${hbData.valor}-05:00` : null
+            bot_heartbeat: hbData?.valor ? `${hbData.valor}-05:00` : null,
+            seconds_since_heartbeat: hbData?.seconds_diff ?? 999999
         });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
