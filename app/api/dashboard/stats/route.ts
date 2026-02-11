@@ -48,7 +48,7 @@ export async function GET() {
             vencimientos_hoy: vencimientosHoy || 0,
             cumpleaños_hoy: cumpleañosHoyCount || 0,
             mensajes_enviados: mensajesEnviados || 0,
-            bot_heartbeat: hbData?.valor || null
+            bot_heartbeat: hbData?.valor ? `${hbData.valor}-05:00` : null
         });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
