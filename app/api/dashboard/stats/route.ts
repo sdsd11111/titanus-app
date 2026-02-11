@@ -3,11 +3,13 @@ import pool from '@/lib/mysql';
 
 export async function GET() {
     try {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = today.getMonth() + 1;
-        const day = today.getDate();
-        const todayStr = today.toISOString().split('T')[0];
+        // Usar hora de Ecuador (UTC-5)
+        const now = new Date();
+        const ecuadorTime = new Date(now.getTime() - (5 * 60 * 60 * 1000));
+        const year = ecuadorTime.getFullYear();
+        const month = ecuadorTime.getMonth() + 1;
+        const day = ecuadorTime.getDate();
+        const todayStr = ecuadorTime.toISOString().split('T')[0];
 
         // 1. Clientes Activos
         const [clientesResult]: any = await pool.query(
@@ -22,7 +24,7 @@ export async function GET() {
         );
         const vencimientosHoy = vencimientosResult[0].count;
 
-        // 3. Cumpleaños Hoy
+        // 3. Cumpleaños Hoy (usando hora de Ecuador)
         const [cumpleResult]: any = await pool.query(
             "SELECT COUNT(*) as count FROM clientes WHERE MONTH(fecha_nacimiento) = ? AND DAY(fecha_nacimiento) = ? AND (estado = 'activo' OR estado IS NULL)",
             [month, day]
